@@ -1,0 +1,32 @@
+# Normalizacion de finales de linea.
+# Sin esto, Git en Windows reescribe archivos completos como CRLF y aparecen
+# cientos de "modificados" que en realidad no cambiaron.
+
+# Por defecto: Git decide si un archivo es texto y lo guarda con LF en el repo.
+* text=auto
+
+# Archivos que DEBEN quedar con LF (se rompen con CRLF).
+*.sh        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.py        text eol=lf
+Dockerfile  text eol=lf
+*.env       text eol=lf
+
+# Archivos propios de Windows.
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# Binarios: nunca tocar.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.xlsx      binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.otf       binary

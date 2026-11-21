@@ -1,0 +1,56 @@
+### docker stats --no-stream
+$ docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDs}}' manual_app manual_pg
+NAME         CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O         PIDS
+manual_app   0.07%     1.322GiB / 9.536GiB   13.86%    1.52MB / 1.96MB   24.9MB / 9.24MB   42
+manual_pg    0.01%     48.23MiB / 9.536GiB   0.49%     349kB / 1.46MB    0B / 57.2MB       11
+
+### docker top manual_app (procesos Gunicorn)
+$ docker top manual_app -o pid,ppid,nlwp,pcpu,pmem,rss,etime,args
+PID                 PPID                NLWP                %CPU                %MEM                RSS                 ELAPSED             COMMAND
+2056                2031                1                   0.4                 0.3                 31488               04:10               /opt/venv/bin/python /opt/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --threads 2 --timeout 120 app:app
+2087                2056                13                  52.4                11.7                1179140             04:09               /opt/venv/bin/python /opt/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --threads 2 --timeout 120 app:app
+2088                2056                14                  1.8                 1.4                 146412              04:09               /opt/venv/bin/python /opt/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --threads 2 --timeout 120 app:app
+2089                2056                14                  1.6                 1.4                 149876              04:09               /opt/venv/bin/python /opt/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --threads 2 --timeout 120 app:app
+
+### docker top manual_pg (procesos PostgreSQL)
+$ docker top manual_pg -o pid,pcpu,pmem,rss,args
+PID                 %CPU                %MEM                RSS                 COMMAND
+1569                0.0                 0.2                 28544               postgres
+1667                0.0                 0.0                 6020                postgres: checkpointer
+1668                0.0                 0.0                 7300                postgres: background writer
+1670                0.0                 0.1                 10116               postgres: walwriter
+1671                0.0                 0.0                 8964                postgres: autovacuum launcher
+1672                0.0                 0.0                 7684                postgres: logical replication launcher
+2145                0.0                 0.1                 19460               postgres: summanpos flask_inventario_db 172.21.0.3(51326) idle
+2383                0.0                 0.1                 19460               postgres: summanpos flask_inventario_db 172.21.0.3(36868) idle
+2424                0.0                 0.2                 20228               postgres: summanpos flask_inventario_db 172.21.0.3(36450) idle
+2447                0.0                 0.1                 19540               postgres: summanpos flask_inventario_db 172.21.0.3(36460) idle
+2448                0.0                 0.1                 19668               postgres: summanpos flask_inventario_db 172.21.0.3(36476) idle
+
+### Disco: archivos en static/uploads
+$ docker exec manual_app sh -c 'du -sh /app/static/uploads; ls -la /app/static/uploads | tail -n +2 | head -15'
+1.2M	/app/static/uploads
+drwxr-xr-x 2 appuser appgroup   4096 Nov 11 09:53 .
+drwxr-xr-x 1 appuser appgroup   4096 Sep 14 11:28 ..
+-rw-r--r-- 1 appuser appgroup 392677 Nov 11 09:55 Reporte_Inventario_20261111_03e26adf.pdf
+-rw-r--r-- 1 appuser appgroup 392677 Nov 11 09:55 Reporte_Inventario_20261111_64fab648.pdf
+-rw-r--r-- 1 appuser appgroup 392677 Nov 11 09:55 Reporte_Inventario_20261111_f2a1351f.pdf
+
+### Disco: base de datos
+$ docker exec manual_pg psql -U summanpos -d flask_inventario_db -c 'SELECT pg_size_pretty(pg_database_size(current_database())) AS tamano_bd;'
+tamano_bd 
+-----------
+ 9143 kB
+(1 row)
+
+### Disco: imagen, contenedores y volúmenes
+$ docker system df
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          28        20        18.23GB   3.265GB (17%)
+Containers      43        4         853.3MB   853MB (99%)
+Local Volumes   8         8         1.63GB    0B (0%)
+Build Cache     159       0         6.977GB   4.362GB
+
+### Límites del contenedor
+$ docker inspect manual_app --format 'CPUs={{.HostConfig.NanoCpus}} Memoria={{.HostConfig.Memory}} Restart={{.HostConfig.RestartPolicy.Name}}'
+CPUs=0 Memoria=0 Restart=no

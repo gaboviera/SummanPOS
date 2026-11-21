@@ -1,0 +1,49 @@
+### docker stats --no-stream
+$ docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDs}}' manual_app manual_pg
+NAME         CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O     PIDS
+manual_app   0.07%     328.7MiB / 9.536GiB   3.37%     4.97kB / 8.87kB   36.9kB / 0B   39
+manual_pg    0.05%     37.46MiB / 9.536GiB   0.38%     33kB / 18.8kB     0B / 56.3MB   7
+
+### docker top manual_app (procesos Gunicorn)
+$ docker top manual_app -o pid,ppid,nlwp,pcpu,pmem,rss,etime,args
+PID                 PPID                NLWP                %CPU                %MEM                RSS                 ELAPSED             COMMAND
+2056                2031                1                   2.9                 0.3                 31488               00:33               /opt/venv/bin/python /opt/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --threads 2 --timeout 120 app:app
+2087                2056                12                  10.8                1.3                 138232              00:32               /opt/venv/bin/python /opt/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --threads 2 --timeout 120 app:app
+2088                2056                12                  10.9                1.3                 138092              00:32               /opt/venv/bin/python /opt/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --threads 2 --timeout 120 app:app
+2089                2056                14                  11.4                1.4                 144756              00:32               /opt/venv/bin/python /opt/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --threads 2 --timeout 120 app:app
+
+### docker top manual_pg (procesos PostgreSQL)
+$ docker top manual_pg -o pid,pcpu,pmem,rss,args
+PID                 %CPU                %MEM                RSS                 COMMAND
+1569                0.1                 0.2                 28544               postgres
+1667                0.0                 0.0                 6020                postgres: checkpointer
+1668                0.0                 0.0                 6660                postgres: background writer
+1670                0.0                 0.1                 10116               postgres: walwriter
+1671                0.0                 0.0                 8964                postgres: autovacuum launcher
+1672                0.0                 0.0                 7684                postgres: logical replication launcher
+2145                0.0                 0.1                 17540               postgres: summanpos flask_inventario_db 172.21.0.3(51326) idle
+
+### Disco: archivos en static/uploads
+$ docker exec manual_app sh -c 'du -sh /app/static/uploads; ls -la /app/static/uploads | tail -n +2 | head -15'
+4.0K	/app/static/uploads
+drwxr-xr-x 2 appuser appgroup 4096 Aug 14 12:40 .
+drwxr-xr-x 1 appuser appgroup 4096 Sep 14 11:28 ..
+
+### Disco: base de datos
+$ docker exec manual_pg psql -U summanpos -d flask_inventario_db -c 'SELECT pg_size_pretty(pg_database_size(current_database())) AS tamano_bd;'
+tamano_bd 
+-----------
+ 9127 kB
+(1 row)
+
+### Disco: imagen, contenedores y volúmenes
+$ docker system df
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          28        20        18.23GB   3.265GB (17%)
+Containers      43        4         853.3MB   853MB (99%)
+Local Volumes   8         8         1.629GB   0B (0%)
+Build Cache     159       0         6.977GB   4.362GB
+
+### Límites del contenedor
+$ docker inspect manual_app --format 'CPUs={{.HostConfig.NanoCpus}} Memoria={{.HostConfig.Memory}} Restart={{.HostConfig.RestartPolicy.Name}}'
+CPUs=0 Memoria=0 Restart=no

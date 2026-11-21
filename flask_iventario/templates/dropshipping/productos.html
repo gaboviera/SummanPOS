@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Productos Vendidos - Dropshipping{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-box-seam me-2" style="color: var(--st-purple-700);"></i> Historial de Productos Vendidos (Dropshipping)</h2>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('dropshipping.productos') }}" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="q" class="form-label text-muted fw-bold small">Buscar Producto o Transacción</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control" id="q" name="q" value="{{ query_str }}" placeholder="DROP-00001, Bujía...">
+                </div>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="estado_envio" class="form-label text-muted fw-bold small">Estado Envío</label>
+                <select class="form-select" id="estado_envio" name="estado_envio">
+                    <option value="todos" {% if estado_envio == 'todos' %}selected{% endif %}>Todos</option>
+                    <option value="Pendiente" {% if estado_envio == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="Procesando" {% if estado_envio == 'Procesando' %}selected{% endif %}>Procesando</option>
+                    <option value="Enviado" {% if estado_envio == 'Enviado' %}selected{% endif %}>Enviado</option>
+                    <option value="Entregado" {% if estado_envio == 'Entregado' %}selected{% endif %}>Entregado</option>
+                    <option value="Cancelado" {% if estado_envio == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label for="estado_pago" class="form-label text-muted fw-bold small">Estado Pago</label>
+                <select class="form-select" id="estado_pago" name="estado_pago">
+                    <option value="todos" {% if estado_pago == 'todos' %}selected{% endif %}>Todos</option>
+                    <option value="Pendiente" {% if estado_pago == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="Parcial" {% if estado_pago == 'Parcial' %}selected{% endif %}>Parcial</option>
+                    <option value="Pagado" {% if estado_pago == 'Pagado' %}selected{% endif %}>Pagado</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label text-muted fw-bold small">Rango de Fecha</label>
+                <div class="input-group">
+                    <input type="date" class="form-control form-control-sm" name="fecha_inicio" value="{{ fecha_inicio }}">
+                    <span class="input-group-text px-2">a</span>
+                    <input type="date" class="form-control form-control-sm" name="fecha_fin" value="{{ fecha_fin }}">
+                </div>
+            </div>
+            
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100 px-0" title="Filtrar">
+                    <i class="bi bi-funnel"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Transacción</th>
+                        <th>Fecha</th>
+                        <th>Producto</th>
+                        <th class="text-center">Cant. Vendida</th>
+                        <th class="text-end">Precio de Venta</th>
+                        <th class="text-center">Estado del Envío</th>
+                        <th class="text-center">Estado del Pago</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for det in detalles.items %}
+                    <tr>
+                        <td class="ps-4">
+                            <a href="{{ url_for('dropshipping.recibo_ref', referencia=det.orden.referencia) }}" class="btn btn-sm btn-outline-danger fw-bold" title="Ver Comprobante Dropshipping" target="_blank">
+                                <i class="bi bi-file-earmark-pdf"></i> {{ det.orden.referencia }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="text-muted small">
+                                <i class="bi bi-calendar"></i> {{ det.orden.fecha_local.strftime('%Y-%m-%d %H:%M') if det.orden.fecha_local else 'N/A' }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center me-3 text-muted" style="width: 48px; height: 48px;">
+                                    <i class="bi bi-box-seam"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">{{ det.producto.nombre }}</div>
+                                    <small class="text-muted text-truncate d-inline-block" style="max-width: 200px;">{{ det.producto.descripcion }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark fs-6 border">{{ det.cantidad }}</span>
+                        </td>
+                        <td class="text-end fw-bold text-success">
+                            ${{ "%.2f"|format(det.precio_venta_unitario) }}
+                        </td>
+                        <td class="text-center">
+                            {% if det.orden.estado == 'Pendiente' %}
+                                <span class="badge bg-secondary">Pendiente</span>
+                            {% elif det.orden.estado == 'Procesando' %}
+                                <span class="badge bg-warning text-dark">Procesando</span>
+                            {% elif det.orden.estado == 'Enviado' %}
+                                <span class="badge bg-info text-dark">Enviado</span>
+                            {% elif det.orden.estado == 'Entregado' %}
+                                <span class="badge bg-success">Entregado</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ det.orden.estado }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if det.orden.pago_cliente_estado == 'Pagado' %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Pagado</span>
+                            {% elif det.orden.pago_cliente_estado == 'Parcial' %}
+                                <span class="badge bg-warning text-dark">Parcial</span>
+                            {% else %}
+                                <span class="badge bg-danger">Pendiente</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-box-seam fs-1 d-block mb-3 opacity-50"></i>
+                            <p class="mb-0">No se encontraron productos vendidos por dropshipping que coincidan con los filtros.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    {% if detalles.pages > 1 %}
+    <div class="card-footer bg-white py-3 border-0">
+        <nav aria-label="Navegación de páginas">
+            <ul class="pagination justify-content-center mb-0">
+                <li class="page-item {% if not detalles.has_prev %}disabled{% endif %}">
+                    <a class="page-link border-0 text-dark" href="{{ url_for('dropshipping.productos', page=detalles.prev_num, q=query_str, estado_envio=estado_envio, estado_pago=estado_pago) if detalles.has_prev else '#' }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                
+                {% for page_num in detalles.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <li class="page-item {% if page_num == detalles.page %}active{% endif %}">
+                            <a class="page-link rounded-circle mx-1 {% if page_num == detalles.page %}bg-primary text-white border-primary{% else %}text-dark border-0{% endif %}" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;" href="{{ url_for('dropshipping.productos', page=page_num, q=query_str, estado_envio=estado_envio, estado_pago=estado_pago) }}">{{ page_num }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link border-0 bg-transparent text-muted">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                <li class="page-item {% if not detalles.has_next %}disabled{% endif %}">
+                    <a class="page-link border-0 text-dark" href="{{ url_for('dropshipping.productos', page=detalles.next_num, q=query_str, estado_envio=estado_envio, estado_pago=estado_pago) if detalles.has_next else '#' }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

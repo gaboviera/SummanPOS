@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12 d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h1 class="display-5 fw-bold text-primary m-0">
+            <i class="bi bi-shield-lock-fill text-primary"></i> Gestión de Usuarios
+        </h1>
+        <button class="btn btn-primary btn-lg rounded-pill shadow-sm px-4 fw-bold" onclick="abrirModalNuevo()">
+            <i class="bi bi-person-plus-fill me-1"></i> Nuevo Usuario
+        </button>
+    </div>
+
+    <!-- Tarjeta de Filtros -->
+    <div class="col-12 mb-4">
+        <div class="card border-0 shadow rounded-4 overflow-hidden">
+            <div class="card-body bg-light">
+                <form method="GET" action="{{ url_for('usuarios.index') }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-9">
+                            <label class="form-label text-dark fw-bold">Buscar Usuario</label>
+                            <input type="text" name="q" class="form-control rounded-pill" placeholder="Buscar por Nombre de Usuario o Correo..." value="{{ q }}">
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold"><i class="bi bi-search me-1"></i> Buscar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensajes Flash -->
+    <div class="col-12 mb-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show rounded-4 shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Tabla de Usuarios -->
+    <div class="col-12">
+        <div class="card border-0 shadow mt-3 rounded-4 overflow-hidden">
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-hover align-middle mb-0 bg-white">
+                    <thead class="bg-light text-dark border-bottom">
+                        <tr>
+                            <th class="py-3 px-3">ID</th>
+                            <th class="py-3 px-3">Usuario / Correo</th>
+                            <th class="py-3 px-3">Rol</th>
+                            <th class="py-3 px-3">Estado</th>
+                            <th class="py-3 px-3 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if usuarios.items %}
+                        {% for u in usuarios.items %}
+                        <tr>
+                            <td class="text-primary fw-bold px-3">#{{ u.id }}</td>
+                            <td class="fw-bold text-dark px-3">
+                                {% if '@' in u.username %}
+                                    <i class="bi bi-envelope-at text-muted me-1" title="Correo Electrónico"></i>
+                                {% else %}
+                                    <i class="bi bi-person text-muted me-1" title="Nombre de Usuario"></i>
+                                {% endif %}
+                                {{ u.username }}
+                            </td>
+                            <td class="px-3">
+                                {% if u.rol.nombre == 'Super Admin' %}
+                                    <span class="badge bg-dark rounded-pill px-3 py-1 shadow-sm border border-secondary" style="background: linear-gradient(135deg, #1f2937, #111827);"><i class="bi bi-shield-shaded text-warning me-1"></i> Super Admin</span>
+                                {% elif u.rol.nombre == 'Administrador' %}
+                                    <span class="badge bg-danger rounded-pill px-3 py-1"><i class="bi bi-star-fill me-1"></i> Administrador</span>
+                                {% elif u.rol.nombre == 'Supervisor' %}
+                                    <span class="badge bg-primary rounded-pill px-3 py-1"><i class="bi bi-shield-fill me-1"></i> Supervisor</span>
+                                {% else %}
+                                    <span class="badge bg-secondary rounded-pill px-3 py-1"><i class="bi bi-person-badge me-1"></i> {{ u.rol.nombre }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3">
+                                {% if u.activo %}
+                                    <span class="badge bg-success rounded-pill px-3 py-1">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary rounded-pill px-3 py-1">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center px-3">
+                                <button class="btn btn-sm btn-outline-warning rounded-circle" 
+                                        title="Editar Usuario"
+                                        onclick="abrirModalEditar({{ u.id }}, '{{ u.username }}', {{ u.rol_id }}, {{ 'true' if u.activo else 'false' }})">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                
+                                {% if u.id != current_user.id %}
+                                <form action="/usuarios/eliminar/{{ u.id }}" method="POST" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar permanentemente a este usuario?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle" title="Eliminar Usuario">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">
+                                <i class="bi bi-people fs-1 d-block mb-2 text-secondary"></i>
+                                <h4>No se encontraron usuarios.</h4>
+                                <p class="small">Intenta con otra búsqueda o crea un nuevo usuario.</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Paginador -->
+        {% if usuarios.pages > 1 %}
+        <nav class="mt-4" aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            <li class="page-item {% if not usuarios.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('usuarios.index', page=usuarios.prev_num, q=q) }}">Anterior</a>
+            </li>
+            
+            {% for page_num in usuarios.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if page_num %}
+                <li class="page-item {% if usuarios.page == page_num %}active{% endif %}">
+                  <a class="page-link" href="{{ url_for('usuarios.index', page=page_num, q=q) }}">{{ page_num }}</a>
+                </li>
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+            
+            <li class="page-item {% if not usuarios.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('usuarios.index', page=usuarios.next_num, q=q) }}">Siguiente</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Modal para Crear / Editar Usuario con Validaciones -->
+<div class="modal fade" id="usuarioModal" tabindex="-1" aria-labelledby="usuarioModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden text-start">
+      <div class="modal-header bg-primary text-white border-0 py-3 px-4">
+        <h5 class="modal-title fw-bold" id="usuarioModalLabel">
+            <i class="bi bi-person-fill-gear me-2"></i>Nuevo Usuario
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="/usuarios/guardar" method="POST" id="formUsuario">
+          <div class="modal-body p-4 bg-light">
+              {{ form.hidden_tag() }}
+              
+              <!-- Campo Usuario / Correo -->
+              <div class="mb-3">
+                  <label class="form-label text-dark fw-bold mb-1">
+                      <i class="bi bi-person-badge me-1 text-primary"></i> Usuario o Correo Electrónico *
+                  </label>
+                  <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                      <span class="input-group-text bg-white border-end-0 text-muted">
+                          <i class="bi bi-at fs-5"></i>
+                      </span>
+                      <input type="text" 
+                             name="username" 
+                             class="form-control border-start-0" 
+                             id="usuario_username" 
+                             required 
+                             minlength="3" 
+                             maxlength="50" 
+                             autocomplete="off" 
+                             placeholder="Ej: cajero1 o usuario@empresa.com">
+                  </div>
+                  <div class="form-text text-muted small mt-1" id="username_help">
+                      <i class="bi bi-info-circle me-1"></i> Letras, números, puntos (.), guiones (-) o un correo válido. Sin espacios ni caracteres especiales.
+                  </div>
+                  <div id="username_warning" class="text-danger small mt-1 d-none fw-semibold">
+                      <i class="bi bi-exclamation-triangle-fill me-1"></i> Solo se permiten letras, números, puntos, guiones o formato de correo válido.
+                  </div>
+              </div>
+              
+              <!-- Campo Contraseña -->
+              <div class="mb-3">
+                  <label class="form-label text-dark fw-bold mb-1">
+                      <i class="bi bi-key-fill me-1 text-primary"></i> Contraseña <span id="password_req_asterisk" class="text-danger">*</span>
+                  </label>
+                  <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                      <span class="input-group-text bg-white border-end-0 text-muted">
+                          <i class="bi bi-lock-fill fs-5"></i>
+                      </span>
+                      <input type="password" 
+                             name="password" 
+                             class="form-control border-start-0 border-end-0" 
+                             id="usuario_password" 
+                             minlength="6" 
+                             maxlength="100" 
+                             placeholder="Mínimo 6 caracteres">
+                      <button class="btn btn-outline-secondary bg-white border-start-0" type="button" onclick="togglePasswordVis('usuario_password', this)" title="Mostrar / Ocultar">
+                          <i class="bi bi-eye"></i>
+                      </button>
+                  </div>
+                  <div class="form-text text-muted small mt-1" id="password_help">
+                      Obligatorio para nuevos usuarios (mínimo 6 caracteres). Si editas, déjalo en blanco para conservarla.
+                  </div>
+              </div>
+              
+              <!-- Campo Rol -->
+              <div class="mb-3">
+                  <label class="form-label text-dark fw-bold mb-1">
+                      <i class="bi bi-shield-check me-1 text-primary"></i> Rol de Acceso *
+                  </label>
+                  <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                      <span class="input-group-text bg-white border-end-0 text-muted">
+                          <i class="bi bi-person-gear fs-5"></i>
+                      </span>
+                      {{ form.rol_id(class="form-select border-start-0", id="usuario_rol_id", required=True) }}
+                  </div>
+              </div>
+              
+              <!-- Switch Activo -->
+              <div class="form-check form-switch p-3 bg-white rounded-3 border shadow-sm mt-3 d-flex align-items-center justify-content-between">
+                  <label class="form-check-label fw-bold text-dark mb-0" for="usuario_activo" style="cursor: pointer;">
+                      <i class="bi bi-check-circle-fill text-success me-2"></i> Usuario Activo (Puede iniciar sesión)
+                  </label>
+                  {{ form.activo(class="form-check-input ms-0 mt-0", id="usuario_activo", checked=True) }}
+              </div>
+
+          </div>
+          <div class="modal-footer border-0 bg-light rounded-bottom-4 px-4 py-3">
+            <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" id="btnGuardarUsuario">
+                <i class="bi bi-check2 me-1"></i> Guardar Usuario
+            </button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+    let myModal;
+    const regexValida = /^(?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9][a-zA-Z0-9._-]{1,48}[a-zA-Z0-9]|[a-zA-Z0-9]{3,50})$/;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const modalElement = document.getElementById('usuarioModal');
+        myModal = new bootstrap.Modal(modalElement);
+
+        const inputUser = document.getElementById('usuario_username');
+        const userWarning = document.getElementById('username_warning');
+        const formUsuario = document.getElementById('formUsuario');
+
+        // Validación en tiempo real del input de usuario/correo
+        if (inputUser) {
+            inputUser.addEventListener('input', function() {
+                // Eliminar espacios automáticamente si el usuario intenta teclear espacios
+                if (this.value.includes(' ')) {
+                    this.value = this.value.replace(/\s+/g, '');
+                }
+
+                const val = this.value.trim();
+                if (val.length > 0 && !regexValida.test(val)) {
+                    userWarning.classList.remove('d-none');
+                    this.classList.add('is-invalid');
+                } else {
+                    userWarning.classList.add('d-none');
+                    this.classList.remove('is-invalid');
+                }
+            });
+        }
+
+        // Validación al enviar el formulario
+        if (formUsuario) {
+            formUsuario.addEventListener('submit', function(e) {
+                const usernameVal = inputUser.value.trim();
+                const usuarioId = document.getElementById('usuario_id').value;
+                const passwordVal = document.getElementById('usuario_password').value;
+
+                // 1. Validar formato de usuario o correo
+                if (!regexValida.test(usernameVal)) {
+                    e.preventDefault();
+                    userWarning.classList.remove('d-none');
+                    inputUser.classList.add('is-invalid');
+                    inputUser.focus();
+                    alert("El usuario o correo ingresado no es válido. Solo se permiten letras, números, puntos (.), guiones (-) o un correo válido (ej: usuario@empresa.com), sin espacios ni caracteres extraños.");
+                    return false;
+                }
+
+                // 2. Validar contraseña mínima si es usuario nuevo
+                if (!usuarioId) {
+                    if (!passwordVal || passwordVal.trim().length < 6) {
+                        e.preventDefault();
+                        alert("La contraseña es obligatoria para nuevos usuarios y debe tener al menos 6 caracteres.");
+                        document.getElementById('usuario_password').focus();
+                        return false;
+                    }
+                } else {
+                    if (passwordVal && passwordVal.trim().length < 6) {
+                        e.preventDefault();
+                        alert("La nueva contraseña debe tener al menos 6 caracteres.");
+                        document.getElementById('usuario_password').focus();
+                        return false;
+                    }
+                }
+            });
+        }
+    });
+
+    function abrirModalNuevo() {
+        document.getElementById('usuarioModalLabel').innerHTML = '<i class="bi bi-person-plus-fill me-2"></i>Nuevo Usuario';
+        document.getElementById('usuario_id').value = '';
+        document.getElementById('usuario_username').value = '';
+        document.getElementById('usuario_username').classList.remove('is-invalid');
+        document.getElementById('username_warning').classList.add('d-none');
+        document.getElementById('usuario_password').value = '';
+        document.getElementById('usuario_password').required = true;
+        document.getElementById('password_req_asterisk').classList.remove('d-none');
+        document.getElementById('password_help').innerText = 'Obligatorio para nuevos usuarios (mínimo 6 caracteres).';
+        document.getElementById('usuario_rol_id').selectedIndex = 0;
+        document.getElementById('usuario_activo').checked = true;
+        
+        myModal.show();
+    }
+
+    function abrirModalEditar(id, username, rolId, activo) {
+        document.getElementById('usuarioModalLabel').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Usuario';
+        document.getElementById('usuario_id').value = id;
+        document.getElementById('usuario_username').value = username;
+        document.getElementById('usuario_username').classList.remove('is-invalid');
+        document.getElementById('username_warning').classList.add('d-none');
+        document.getElementById('usuario_password').value = '';
+        document.getElementById('usuario_password').required = false;
+        document.getElementById('password_req_asterisk').classList.add('d-none');
+        document.getElementById('password_help').innerText = 'Déjalo en blanco para mantener la contraseña actual (o ingresa mínimo 6 caracteres para cambiarla).';
+        document.getElementById('usuario_rol_id').value = rolId;
+        document.getElementById('usuario_activo').checked = activo;
+        
+        myModal.show();
+    }
+
+    function togglePasswordVis(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+</script>
+{% endblock %}

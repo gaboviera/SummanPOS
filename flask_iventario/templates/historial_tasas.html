@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12">
+        <h1 class="display-5 fw-bold text-primary mb-4 text-center">
+            <i class="bi bi-graph-up-arrow"></i> Historial de Tasas de Cambio
+        </h1>
+
+        <!-- Tarjeta de Filtros -->
+        <div class="card border-0 shadow mt-3 rounded-4 overflow-hidden mb-4">
+            <div class="card-body bg-light">
+                <form method="GET" action="{{ url_for('bcv.historial_tasas') }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label text-dark fw-bold">Fecha Inicio</label>
+                            <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-dark fw-bold">Fecha Fin</label>
+                            <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-dark fw-bold">Fuente</label>
+                            <select name="fuente" class="form-select">
+                                <option value="">Todas las Fuentes</option>
+                                <option value="BCV" {% if fuente == 'BCV' %}selected{% endif %}>Banco Central (BCV)</option>
+                                <option value="BCV_EURO" {% if fuente == 'BCV_EURO' %}selected{% endif %}>Euro BCV</option>
+                                <option value="BINANCE_USDT" {% if fuente == 'BINANCE_USDT' %}selected{% endif %}>Binance USDT</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel"></i> Filtrar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-3">
+                <h4 class="text-primary m-0"><i class="bi bi-table"></i> Registros de Tasas</h4>
+                <div class="d-flex gap-2">
+                    <button type="button" id="btn-actualizar-bcv" class="btn btn-primary shadow-sm rounded-pill px-3">
+                        <i class="bi bi-bank me-1"></i> Actualizar BCV
+                    </button>
+                    <button type="button" id="btn-actualizar-usdt" class="btn btn-warning text-dark shadow-sm rounded-pill px-3">
+                        <i class="bi bi-currency-bitcoin me-1"></i> Actualizar USDT
+                    </button>
+                    <button type="button" class="btn btn-outline-dark shadow-sm rounded-pill px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#modalTasaManual">
+                        <i class="bi bi-pencil-square me-1"></i> Fijar Tasa Manual (Al Cambio)
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0 bg-white">
+                    <thead class="bg-light text-dark border-bottom">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Fuente</th>
+                            <th class="text-end">Tasa Registrada (Bs.)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if tasas.items %}
+                        {% for t in tasas.items %}
+                        <tr>
+                            <td>{{ t.fecha.strftime('%d/%m/%Y a las %I:%M %p') if t.fecha else 'N/A' }}</td>
+                            <td>
+                                {% if t.fuente == 'BCV' %}
+                                    <span class="badge bg-primary rounded-pill"><i class="bi bi-bank"></i> BCV</span>
+                                {% elif t.fuente == 'BINANCE_USDT' %}
+                                    <span class="badge bg-success rounded-pill"><i class="bi bi-currency-bitcoin"></i> Binance USDT</span>
+                                {% else %}
+                                    <span class="badge bg-secondary rounded-pill">{{ t.fuente }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold">
+                                Bs. {{ "%.2f"|format(t.tasa) if t.tasa else '0.00' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-5">
+                                <h4>No hay tasas registradas.</h4>
+                                <p>Las tasas de cambio actualizadas aparecerán aquí.</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Paginador -->
+        {% if tasas.pages > 1 %}
+        <nav class="mt-4" aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            <li class="page-item {% if not tasas.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('bcv.historial_tasas', page=tasas.prev_num, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, fuente=fuente) }}">Anterior</a>
+            </li>
+            
+            {% for page_num in tasas.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if page_num %}
+                <li class="page-item {% if tasas.page == page_num %}active{% endif %}">
+                  <a class="page-link" href="{{ url_for('bcv.historial_tasas', page=page_num, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, fuente=fuente) }}">{{ page_num }}</a>
+                </li>
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+            
+            <li class="page-item {% if not tasas.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('bcv.historial_tasas', page=tasas.next_num, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, fuente=fuente) }}">Siguiente</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+        
+    </div>
+<!-- Modal Fijar Tasa Manual -->
+<div class="modal fade" id="modalTasaManual" tabindex="-1" aria-labelledby="modalTasaManualLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h5 class="modal-title fw-bold mb-0" id="modalTasaManualLabel">
+                    <i class="bi bi-pencil-square me-2"></i> Fijar Tasa Manualmente
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('bcv.fijar_tasa_manual') }}" method="POST">
+                <div class="modal-body p-4 bg-light">
+                    <div class="alert alert-info border-0 rounded-3 small py-2 px-3 mb-3">
+                        <i class="bi bi-info-circle me-1"></i> Ingresa el valor exacto de tu app de referencia (ej. <strong>Al Cambio</strong>). Esta tasa se guardará y aplicará inmediatamente en ventas, inventario y finanzas.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary">Tipo de Tasa / Moneda</label>
+                        <select name="fuente" class="form-select rounded-3 fw-semibold" required>
+                            <option value="BCV_EURO" selected>💶 Euro BCV (EUR)</option>
+                            <option value="BCV">🏛️ Dólar BCV (USD)</option>
+                            <option value="BINANCE_USDT">⚡ Binance USDT</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold text-secondary">Monto de la Tasa en Bolívares (Bs.)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0 fw-bold text-secondary">Bs.</span>
+                            <input type="number" step="0.0001" min="0.0001" name="tasa" class="form-control form-control-lg border-start-0 fw-bold text-primary" placeholder="Ej: 974.42" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light px-4 py-3 border-0">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+                        <i class="bi bi-check-circle me-1"></i> Guardar Tasa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function actualizarTasa(url, nombreFuente) {
+    Swal.fire({
+        title: 'Actualizando...',
+        html: `<p class="mb-0">Consultando tasa <strong>${nombreFuente}</strong></p>`,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+        customClass: { popup: 'rounded-4 shadow' }
+    });
+
+    fetch(url, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Tasa Actualizada!',
+                text: data.message,
+                timer: 2000,
+                showConfirmButton: false,
+                customClass: { popup: 'rounded-4 shadow' }
+            }).then(() => location.reload());
+        } else {
+            Swal.fire({
+                icon: 'info',
+                title: 'Sin cambios',
+                text: data.message,
+                confirmButtonColor: '#0d6efd',
+                customClass: { popup: 'rounded-4 shadow' }
+            });
+        }
+    })
+    .catch(() => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se pudo conectar con el servidor.',
+            confirmButtonColor: '#dc3545',
+            customClass: { popup: 'rounded-4 shadow' }
+        });
+    });
+}
+
+document.getElementById('btn-actualizar-bcv').addEventListener('click', () => {
+    actualizarTasa("{{ url_for('bcv.actualizar') }}", 'BCV');
+});
+
+document.getElementById('btn-actualizar-usdt').addEventListener('click', () => {
+    actualizarTasa("{{ url_for('bcv.actualizar_usdt') }}", 'USDT Binance');
+});
+</script>
+{% endblock %}

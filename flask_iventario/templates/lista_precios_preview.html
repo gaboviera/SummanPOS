@@ -1,0 +1,782 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid px-3 px-lg-4 mt-3">
+
+    <!-- Mensajes Flash -->
+    <div class="row">
+        <div class="col-12 mb-2 text-start">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm rounded-4" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+
+    <!-- ENCABEZADO Y TASAS DE CAMBIO -->
+    <div class="row align-items-center mb-3 g-3">
+        <div class="col-lg-5 col-12">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-primary text-white p-3 rounded-4 shadow-sm d-flex align-items-center justify-content-center" style="width: 54px; height: 54px;">
+                    <i class="bi bi-tags-fill fs-3"></i>
+                </div>
+                <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <h2 class="fw-bold text-dark mb-0 fs-3">Lista de Precios al Consumidor</h2>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1 fw-bold">
+                            <i class="bi bi-sliders me-1"></i> Reglas Activas
+                        </span>
+                    </div>
+                    <p class="text-muted mb-0 small">
+                        Precios calculados en Dólares ($) según las reglas de <a href="/configuracion/listas-precios" class="text-primary fw-semibold text-decoration-none">Gestión de Listas de Precios</a>.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- WIDGETS DE TASAS Y ACCIONES -->
+        <div class="col-lg-7 col-12">
+            <div class="d-flex flex-wrap align-items-center justify-content-lg-end gap-2">
+                <!-- Tasa BCV -->
+                <div class="bg-white border rounded-pill px-3 py-2 shadow-sm d-flex align-items-center">
+                    <span class="badge bg-primary rounded-circle p-2 me-2">
+                        <i class="bi bi-bank text-white"></i>
+                    </span>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.70rem; font-weight: 600;">TASA BCV</div>
+                        <strong class="text-primary fs-6">{{ "%.2f"|format(tasa_bcv.tasa) if tasa_bcv else '0.00' }} Bs.</strong>
+                    </div>
+                    <a href="/bcv/actualizar" class="btn btn-outline-info btn-sm rounded-circle p-0 px-1 ms-2" title="Actualizar Tasa BCV">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </a>
+                </div>
+
+                <!-- Tasa EURO -->
+                <div class="bg-white border rounded-pill px-3 py-2 shadow-sm d-flex align-items-center">
+                    <span class="badge bg-info rounded-circle p-2 me-2">
+                        <i class="bi bi-currency-euro text-white"></i>
+                    </span>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.70rem; font-weight: 600;">TASA EURO</div>
+                        <strong class="text-info fs-6">{{ "%.2f"|format(tasa_euro.tasa) if tasa_euro else '0.00' }} Bs.</strong>
+                    </div>
+                    <a href="/bcv/actualizar_euro" class="btn btn-outline-info btn-sm rounded-circle p-0 px-1 ms-2" title="Actualizar Tasa Euro (BCV)">
+                      <i class="bi bi-arrow-clockwise"></i>
+                    </a>
+                </div>
+
+                <!-- Tasa USDT -->
+                <div class="bg-white border rounded-pill px-3 py-2 shadow-sm d-flex align-items-center">
+                    <span class="badge bg-warning rounded-circle p-2 me-2">
+                        <i class="bi bi-currency-bitcoin text-white"></i>
+                    </span>
+                    <div>
+                        <div class="text-secondary" style="font-size: 0.70rem; font-weight: 600;">TASA USDT</div>
+                        <strong class="text-dark fs-6">{{ "%.2f"|format(tasa_usdt.tasa) if tasa_usdt else '0.00' }} Bs.</strong>
+                    </div>
+                    <a href="/bcv/actualizar_usdt" class="btn btn-outline-warning btn-sm rounded-circle p-0 px-1 ms-2" title="Actualizar Tasa USDT">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </a>
+                </div>
+
+                <!-- Ir a Configuración de Listas -->
+                <a href="/configuracion/listas-precios" class="btn btn-outline-primary rounded-4 px-3 py-2 shadow-sm" title="Configurar aumentos o descuentos">
+                    <i class="bi bi-gear-fill me-1"></i> Reglas de Listas
+                </a>
+
+                <!-- Botón Exportar e Imprimir -->
+                <button type="button" class="btn btn-primary rounded-4 px-3 py-2 shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalExportarPrecios">
+                    <i class="bi bi-download me-1"></i> Exportar / Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BANNER DE REGLAS DE LISTAS DE PRECIOS VINCULADAS -->
+    <div class="alert alert-light border rounded-4 p-3 mb-3 shadow-sm d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="text-secondary small fw-bold"><i class="bi bi-calculator-fill me-1 text-primary"></i> Reglas automáticas aplicadas en $:</span>
+            
+            {% if lista_bcv %}
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill" style="font-size: 0.82rem;">
+                <i class="bi bi-bank me-1"></i> {{ lista_bcv.nombre }}: <strong>{{ lista_bcv.operador }} {{ "%.2f"|format(lista_bcv.valor_regla) }}%</strong> en $
+            </span>
+            {% endif %}
+
+            {% if lista_usdt %}
+            <span class="badge bg-warning-subtle text-dark border border-warning-subtle px-3 py-2 rounded-pill" style="font-size: 0.82rem;">
+                <i class="bi bi-currency-bitcoin text-warning me-1"></i> {{ lista_usdt.nombre }}: <strong>{{ lista_usdt.operador }} {{ "%.2f"|format(lista_usdt.valor_regla) }}%</strong> (igual a efectivo)
+            </span>
+            {% endif %}
+
+            {% if lista_euro %}
+            <span class="badge bg-dark-subtle text-dark border border-dark-subtle px-3 py-2 rounded-pill" style="font-size: 0.82rem;">
+                <i class="bi bi-currency-euro me-1"></i> {{ lista_euro.nombre }}: <strong>{{ lista_euro.operador }} {{ "%.2f"|format(lista_euro.valor_regla) }}%</strong> en $
+            </span>
+            {% endif %}
+
+            {% if lista_mayorista %}
+            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-3 py-2 rounded-pill" style="font-size: 0.82rem;">
+                <i class="bi bi-boxes me-1"></i> {{ lista_mayorista.nombre }}: <strong>{{ lista_mayorista.operador }} {{ "%.2f"|format(lista_mayorista.valor_regla) }}%</strong> en $
+            </span>
+            {% endif %}
+        </div>
+
+        <div>
+            <a href="{{ url_for('inventario.productos') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold">
+                <i class="bi bi-arrow-left me-1"></i> Volver a Productos (Gestión Completa)
+            </a>
+        </div>
+    </div>
+
+    <!-- TARJETA DE FILTROS RÁPIDOS (CON DROPSHIPPING) -->
+    <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('inventario.lista_precios') }}" id="filtroPreciosForm">
+                <div class="row g-2 align-items-center">
+                    <!-- Búsqueda -->
+                    <div class="col-md-4 col-12">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 rounded-start-pill text-muted">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" 
+                                   name="q" 
+                                   id="inputBusqueda" 
+                                   class="form-control border-start-0 bg-light" 
+                                   placeholder="Buscar por código, repuesto..." 
+                                   value="{{ q }}">
+                        </div>
+                    </div>
+
+                    <!-- Categoría -->
+                    <div class="col-md-3 col-6">
+                        <select name="categoria_id" class="form-select bg-light rounded-pill" onchange="document.getElementById('filtroPreciosForm').submit()">
+                            <option value="">Todas las Categorías</option>
+                            {% for c in categorias %}
+                            <option value="{{ c.id }}" {% if categoria_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Stock -->
+                    <div class="col-md-2 col-6">
+                        <select name="estado_stock" class="form-select bg-light rounded-pill" onchange="document.getElementById('filtroPreciosForm').submit()">
+                            <option value="">Todo el Stock</option>
+                            <option value="con_stock" {% if estado_stock == 'con_stock' %}selected{% endif %}>Solo Con Stock</option>
+                            <option value="sin_stock" {% if estado_stock == 'sin_stock' %}selected{% endif %}>Agotados</option>
+                        </select>
+                    </div>
+
+                    {% if modulo_dropshipping_activo %}
+                    <!-- Filtro Dropshipping (igual a /productos) -->
+                    <div class="col-md-2 col-6">
+                        <select name="es_dropshipping" class="form-select bg-light rounded-pill" onchange="document.getElementById('filtroPreciosForm').submit()">
+                            <option value="">Todo el Origen</option>
+                            <option value="no" {% if es_dropshipping == 'no' %}selected{% endif %}>Solo Físico</option>
+                            <option value="si" {% if es_dropshipping == 'si' %}selected{% endif %}>Solo Dropshipping</option>
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <!-- Botones Filtrar / Limpiar -->
+                    <div class="col-md-1 col-6 d-flex gap-1">
+                        <button type="submit" class="btn btn-primary rounded-pill w-100 fw-bold px-2" title="Aplicar filtros">
+                            <i class="bi bi-funnel-fill"></i>
+                        </button>
+                        {% if q or categoria_id or estado_stock or es_dropshipping %}
+                        <a href="{{ url_for('inventario.lista_precios') }}" class="btn btn-outline-secondary rounded-pill px-2" title="Limpiar filtros">
+                            <i class="bi bi-x-lg"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- BARRA DE SELECCIÓN MASIVA -->
+    <div id="barraSeleccion" class="alert alert-primary border shadow-sm rounded-4 py-2 px-3 mb-3 d-none align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-check2-circle fs-5 text-primary"></i>
+            <span class="fw-bold text-dark" id="conteoSeleccionados">0 productos seleccionados</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold" onclick="abrirModalExportarSeleccionados()">
+                <i class="bi bi-download me-1"></i> Exportar Seleccionados
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2" onclick="deseleccionarTodos()" title="Deseleccionar todos">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- SELECTOR DE MONEDAS Y DROPDOWN MOSTRAR/OCULTAR COLUMNAS -->
+    <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2 small">
+            <span class="text-muted fw-bold"><i class="bi bi-eye me-1"></i> Resaltar:</span>
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-secondary active btn-filtro-moneda" data-columna="todas" onclick="resaltarMoneda('todas', this)">Todas</button>
+                <button type="button" class="btn btn-outline-success btn-filtro-moneda" data-columna="usd" onclick="resaltarMoneda('usd', this)">💵 Efectivo</button>
+                <button type="button" class="btn btn-outline-primary btn-filtro-moneda" data-columna="bcv" onclick="resaltarMoneda('bcv', this)">🏛️ BCV</button>
+                <button type="button" class="btn btn-outline-warning btn-filtro-moneda" data-columna="usdt" onclick="resaltarMoneda('usdt', this)">⚡ USDT</button>
+                <button type="button" class="btn btn-outline-dark btn-filtro-moneda" data-columna="euro" onclick="resaltarMoneda('euro', this)"><i class="bi bi-currency-euro me-1"></i> Euro</button>
+                <button type="button" class="btn btn-outline-info btn-filtro-moneda" data-columna="mayorista" onclick="resaltarMoneda('mayorista', this)"><i class="bi bi-boxes me-1"></i> Mayorista</button>
+            </div>
+        </div>
+
+        <!-- Botón Mostrar/Ocultar Columnas (igual a /productos) -->
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle rounded-pill px-3 shadow-sm bg-white" type="button" id="dropdownColumnasPrecios" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-layout-three-columns me-1"></i> Mostrar/Ocultar Columnas
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end p-2 shadow border-0 rounded-4" aria-labelledby="dropdownColumnasPrecios" style="min-width: 230px;">
+                <li><label class="dropdown-item rounded-2 py-1"><input type="checkbox" class="col-toggle-precios me-2" data-col="2" checked> Código</label></li>
+                <li><label class="dropdown-item rounded-2 py-1"><input type="checkbox" class="col-toggle-precios me-2" data-col="3" checked> Producto / Repuesto</label></li>
+                <li><label class="dropdown-item rounded-2 py-1"><input type="checkbox" class="col-toggle-precios me-2" data-col="4" checked> Categoría</label></li>
+                <li><label class="dropdown-item rounded-2 py-1"><input type="checkbox" class="col-toggle-precios me-2" data-col="5" checked> Marca</label></li>
+                <li><label class="dropdown-item rounded-2 py-1"><input type="checkbox" class="col-toggle-precios me-2" data-col="6" checked> Stock</label></li>
+                <li><hr class="dropdown-divider my-1 opacity-25"></li>
+                <li><label class="dropdown-item rounded-2 py-1 text-success fw-bold"><input type="checkbox" class="col-toggle-precios me-2" data-col="7" checked> 💵 Efectivo ($)</label></li>
+                <li><label class="dropdown-item rounded-2 py-1 text-primary fw-bold"><input type="checkbox" class="col-toggle-precios me-2" data-col="8" checked> 🏛️ Precio BCV ($)</label></li>
+                <li><label class="dropdown-item rounded-2 py-1 text-dark fw-bold"><input type="checkbox" class="col-toggle-precios me-2" data-col="9" checked> ⚡ Precio USDT ($)</label></li>
+                <li><label class="dropdown-item rounded-2 py-1 text-dark fw-bold"><input type="checkbox" class="col-toggle-precios me-2" data-col="10" checked> <i class="bi bi-currency-euro text-primary me-1"></i> Precio Euro ($)</label></li>
+                <li><label class="dropdown-item rounded-2 py-1 text-info-emphasis fw-bold"><input type="checkbox" class="col-toggle-precios me-2" data-col="11" checked> <i class="bi bi-boxes me-1"></i> Mayorista ($)</label></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- TABLA DE LISTA DE PRECIOS -->
+    <div class="card border-0 shadow rounded-4 overflow-hidden mb-3">
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-hover align-middle mb-0 bg-white" id="tablaPrecios">
+                <thead class="bg-light text-dark border-bottom" style="font-size: 0.82rem;">
+                    <tr>
+                        <!-- Checkbox Seleccionar Todos (Col 1) -->
+                        <th class="py-3 px-3 text-center" style="width: 40px;">
+                            <input type="checkbox" id="checkAll" class="form-check-input" title="Seleccionar todos en esta página">
+                        </th>
+                        <!-- Col 2: Código -->
+                        <th class="py-3 px-3 text-secondary" style="width: 11%;">CÓDIGO</th>
+                        <!-- Col 3: Producto -->
+                        <th class="py-3 px-3 text-secondary" style="width: 25%;">PRODUCTO / REPUESTO</th>
+                        <!-- Col 4: Categoría -->
+                        <th class="py-3 px-2 text-secondary" style="width: 12%;">CATEGORÍA</th>
+                        <!-- Col 5: Marca -->
+                        <th class="py-3 px-2 text-secondary" style="width: 10%;">MARCA</th>
+                        <!-- Col 6: Stock -->
+                        <th class="py-3 px-2 text-center text-secondary" style="width: 7%;">STOCK</th>
+                        
+                        <!-- Col 7: PRECIO EFECTIVO ($ USD) -->
+                        <th class="py-3 px-3 text-end col-precio-usd text-success bg-success-subtle bg-opacity-25" style="width: 11%;">
+                            <div class="fw-bold fs-6"><i class="bi bi-cash me-1"></i> EFECTIVO ($)</div>
+                            <div class="small fw-normal text-muted" style="font-size: 0.70rem;">Precio Base</div>
+                        </th>
+
+                        <!-- Col 8: PRECIO BCV ($) -->
+                        <th class="py-3 px-3 text-end col-precio-bcv text-primary bg-primary-subtle bg-opacity-25" style="width: 13%;">
+                            <div class="fw-bold fs-6"><i class="bi bi-bank me-1"></i> PRECIO BCV ($)</div>
+                            <div class="small fw-normal text-muted" style="font-size: 0.70rem;">
+                                {% if lista_bcv %}{{ lista_bcv.operador }}{{ "%.0f"|format(lista_bcv.valor_regla) }}% sobre base{% endif %}
+                            </div>
+                        </th>
+
+                        <!-- Col 9: PRECIO USDT ($) -->
+                        <th class="py-3 px-3 text-end col-precio-usdt text-dark bg-warning-subtle bg-opacity-25" style="width: 13%;">
+                            <div class="fw-bold fs-6"><i class="bi bi-currency-bitcoin text-warning me-1"></i> PRECIO USDT ($)</div>
+                            <div class="small fw-normal text-muted" style="font-size: 0.70rem;">
+                                {% if lista_usdt %}{{ lista_usdt.operador }}{{ "%.0f"|format(lista_usdt.valor_regla) }}% sobre base{% endif %}
+                            </div>
+                        </th>
+
+                        <!-- Col 10: PRECIO EURO ($) -->
+                        <th class="py-3 px-3 text-end col-precio-euro text-dark bg-secondary-subtle bg-opacity-25" style="width: 11%;">
+                            <div class="fw-bold fs-6"><i class="bi bi-currency-euro me-1"></i> PRECIO EURO ($)</div>
+                            <div class="small fw-normal text-muted" style="font-size: 0.70rem;">
+                                {% if lista_euro %}{{ lista_euro.operador }}{{ "%.0f"|format(lista_euro.valor_regla) }}% sobre base{% else %}Tasa Euro{% endif %}
+                            </div>
+                        </th>
+
+                        <!-- Col 11: MAYORISTA ($ USD) -->
+                        <th class="py-3 px-3 text-end col-precio-mayorista text-info-emphasis bg-info-subtle bg-opacity-25" style="width: 10%;">
+                            <div class="fw-bold fs-6"><i class="bi bi-boxes me-1"></i> MAYORISTA ($)</div>
+                            <div class="small fw-normal text-muted" style="font-size: 0.70rem;">
+                                {% if lista_mayorista %}{{ lista_mayorista.operador }}{{ "%.0f"|format(lista_mayorista.valor_regla) }}%{% else %}Descuento{% endif %}
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody style="font-size: 0.90rem;">
+                    {% if items_calculados %}
+                    {% for item in items_calculados %}
+                    {% set p = item.producto %}
+                    
+                    <tr class="fila-producto">
+                        <!-- Col 1: Checkbox Fila -->
+                        <td class="px-3 text-center">
+                            <input type="checkbox" class="form-check-input check-item" value="{{ p.id }}">
+                        </td>
+
+                        <!-- Col 2: Código -->
+                        <td class="px-3">
+                            <span class="badge bg-light text-secondary border font-monospace px-2 py-1" style="font-size: 0.82rem;">
+                                {{ item.codigo }}
+                            </span>
+                        </td>
+
+                        <!-- Col 3: Nombre -->
+                        <td class="px-3">
+                            <div class="fw-bold text-dark lh-sm mb-1">{{ p.nombre }}</div>
+                            {% if modulo_dropshipping_activo and p.es_dropshipping %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill" style="font-size: 0.7rem;">
+                                <i class="bi bi-airplane"></i> Dropshipping
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Col 4: Categoría -->
+                        <td class="px-2">
+                            {% if p.categoria %}
+                            <span class="badge bg-light text-dark border px-2 py-1">{{ p.categoria.nombre }}</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted border">Sin Categoría</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Col 5: Atributos / Marcas -->
+                        <td class="px-2">
+                            {% if p.valores %}
+                                {% for v in p.valores %}
+                                    {% if v.atributo and v.atributo.nombre|lower == 'marca' %}
+                                        <span class="badge bg-primary text-white px-2 py-1 mb-1 d-inline-block shadow-sm">
+                                            Marca: <strong>{{ v.valor }}</strong>
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary text-white px-2 py-1 mb-1 d-inline-block">
+                                            {{ v.atributo.nombre if v.atributo else '' }}: {{ v.valor }}
+                                        </span>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small">---</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Col 6: Stock -->
+                        <td class="px-2 text-center">
+                            {% if p.cantidad > 5 %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1" title="Stock disponible">
+                                    <i class="bi bi-check-circle-fill me-1"></i>{{ p.cantidad }}
+                                </span>
+                            {% elif p.cantidad > 0 %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2 py-1" title="Stock bajo">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ p.cantidad }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1" title="Agotado">
+                                    <i class="bi bi-x-circle-fill me-1"></i>0
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Col 7: PRECIO EFECTIVO ($ USD) -->
+                        <td class="px-3 text-end col-precio-usd bg-success-subtle bg-opacity-10">
+                            <div class="fs-5 fw-bold text-success">${{ "%.2f"|format(item.precio_base) }}</div>
+                            <div class="text-muted" style="font-size: 0.72rem;">Divisa efectivo</div>
+                        </td>
+
+                        <!-- Col 8: PRECIO BCV ($) -->
+                        <td class="px-3 text-end col-precio-bcv bg-primary-subtle bg-opacity-10">
+                            <div class="fs-5 fw-bold text-primary">${{ "%.2f"|format(item.precio_usd_bcv) }}</div>
+                            <div class="text-muted" style="font-size: 0.70rem;">
+                                {% if lista_bcv %}{{ lista_bcv.operador }}{{ "%.0f"|format(lista_bcv.valor_regla) }}% s/base{% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Col 9: PRECIO USDT ($) -->
+                        <td class="px-3 text-end col-precio-usdt bg-warning-subtle bg-opacity-10">
+                            <div class="fs-5 fw-bold text-dark">${{ "%.2f"|format(item.precio_usd_usdt) }}</div>
+                            <div class="text-muted" style="font-size: 0.70rem;">
+                                {% if lista_usdt %}{{ lista_usdt.operador }}{{ "%.0f"|format(lista_usdt.valor_regla) }}% s/base{% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Col 10: PRECIO EURO ($) -->
+                        <td class="px-3 text-end col-precio-euro bg-secondary-subtle bg-opacity-10">
+                            {% if item.precio_usd_euro is not none %}
+                            <div class="fs-5 fw-bold text-dark">${{ "%.2f"|format(item.precio_usd_euro) }}</div>
+                            <div class="text-muted" style="font-size: 0.70rem;">
+                                {% if lista_euro %}{{ lista_euro.operador }}{{ "%.0f"|format(lista_euro.valor_regla) }}% s/base{% else %}Tasa Euro{% endif %}
+                            </div>
+                            {% else %}
+                            <span class="text-muted small">---</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Col 11: MAYORISTA ($ USD) -->
+                        <td class="px-3 text-end col-precio-mayorista bg-info-subtle bg-opacity-10">
+                            {% if item.precio_usd_mayorista is not none %}
+                            <div class="fs-5 fw-bold text-info-emphasis">${{ "%.2f"|format(item.precio_usd_mayorista) }}</div>
+                            <div class="text-muted" style="font-size: 0.70rem;">
+                                {% if lista_mayorista %}{{ lista_mayorista.operador }}{{ "%.0f"|format(lista_mayorista.valor_regla) }}% descuento{% endif %}
+                            </div>
+                            {% else %}
+                            <span class="text-muted small">---</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="11" class="text-center py-5 text-muted">
+                            <i class="bi bi-search fs-1 d-block mb-2 text-secondary"></i>
+                            <h5>No se encontraron productos</h5>
+                            <p class="small">Prueba cambiando los términos de búsqueda o los filtros de categoría/dropshipping.</p>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PAGINADOR EXTERNO (IDÉNTICO A /productos) -->
+    {% if productos.pages > 1 %}
+    <nav class="mt-4 mb-4" aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            <!-- Anterior -->
+            <li class="page-item {% if not productos.has_prev %}disabled{% endif %}">
+                <a class="page-link"
+                   href="{{ url_for('inventario.lista_precios', page=productos.prev_num, q=q, categoria_id=categoria_id, estado_stock=estado_stock, es_dropshipping=es_dropshipping) }}">Anterior</a>
+            </li>
+
+            <!-- Números (Mostramos ventana dinámica) -->
+            {% for page_num in productos.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+            <li class="page-item {% if productos.page == page_num %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('inventario.lista_precios', page=page_num, q=q, categoria_id=categoria_id, estado_stock=estado_stock, es_dropshipping=es_dropshipping) }}">{{ page_num }}</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+            {% endfor %}
+
+            <!-- Siguiente -->
+            <li class="page-item {% if not productos.has_next %}disabled{% endif %}">
+                <a class="page-link"
+                   href="{{ url_for('inventario.lista_precios', page=productos.next_num, q=q, categoria_id=categoria_id, estado_stock=estado_stock, es_dropshipping=es_dropshipping) }}">Siguiente</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+
+<!-- MODAL EXPORTAR E IMPRIMIR LISTA DE PRECIOS -->
+<div class="modal fade" id="modalExportarPrecios" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-primary text-white border-0 py-3 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-file-earmark-spreadsheet-fill fs-4"></i>
+                    <h5 class="modal-title fw-bold mb-0">Exportar Lista de Precios</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('inventario.exportar_lista_precios') }}" method="POST" id="formExportarPrecios">
+                <input type="hidden" name="q" value="{{ q }}">
+                <input type="hidden" name="categoria_id" value="{{ categoria_id or '' }}">
+                <input type="hidden" name="estado_stock" value="{{ estado_stock or '' }}">
+                <input type="hidden" name="es_dropshipping" value="{{ es_dropshipping or '' }}">
+                <input type="hidden" name="ids_seleccionados" id="modalIdsSeleccionados" value="">
+
+                <div class="modal-body p-4 bg-light">
+                    <!-- 1. Formato de Archivo -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary mb-2 d-block">
+                            <i class="bi bi-file-earmark-text me-1"></i> 1. Formato de Exportación
+                        </label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check bg-white p-3 rounded-3 border shadow-sm flex-fill">
+                                <input class="form-check-input ms-0 me-2 mt-1" type="radio" name="formato" id="fmt_excel" value="excel" checked>
+                                <label class="form-check-label fw-bold text-success" for="fmt_excel" style="cursor: pointer;">
+                                    <i class="bi bi-file-earmark-excel-fill me-1"></i> Excel (.xlsx)
+                                    <div class="text-muted small fw-normal">Formato idéntico a inventario</div>
+                                </label>
+                            </div>
+                            <div class="form-check bg-white p-3 rounded-3 border shadow-sm flex-fill">
+                                <input class="form-check-input ms-0 me-2 mt-1" type="radio" name="formato" id="fmt_pdf" value="pdf">
+                                <label class="form-check-label fw-bold text-danger" for="fmt_pdf" style="cursor: pointer;">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF (.pdf)
+                                    <div class="text-muted small fw-normal">Listo para imprimir o enviar</div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Lista de Precio a Aplicar -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary mb-2 d-block">
+                            <i class="bi bi-tags-fill me-1"></i> 2. Lista de Precios a Aplicar
+                        </label>
+                        <div class="bg-white p-3 rounded-3 border shadow-sm">
+                            <!-- Opción BCV -->
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="lista_opcion" id="opt_bcv" value="bcv" checked>
+                                <label class="form-check-label fw-semibold text-primary" for="opt_bcv" style="cursor: pointer;">
+                                    <i class="bi bi-bank me-1"></i> <strong>Precio BCV ($)</strong> 
+                                    <span class="badge bg-primary-subtle text-primary border ms-1">
+                                        {% if lista_bcv %}{{ lista_bcv.operador }}{{ "%.0f"|format(lista_bcv.valor_regla) }}% s/base{% else %}+20%{% endif %}
+                                    </span>
+                                </label>
+                            </div>
+
+                            <!-- Opción USDT -->
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="lista_opcion" id="opt_usdt" value="usdt">
+                                <label class="form-check-label fw-semibold text-dark" for="opt_usdt" style="cursor: pointer;">
+                                    <i class="bi bi-currency-bitcoin text-warning me-1"></i> <strong>Precio USDT ($)</strong> 
+                                    <span class="badge bg-warning-subtle text-dark border ms-1">
+                                        {% if lista_usdt %}{{ lista_usdt.operador }}{{ "%.0f"|format(lista_usdt.valor_regla) }}% (igual efectivo){% else %}+0%{% endif %}
+                                    </span>
+                                </label>
+                            </div>
+
+                            <!-- Opción Euro -->
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="lista_opcion" id="opt_euro" value="euro">
+                                <label class="form-check-label fw-semibold text-dark" for="opt_euro" style="cursor: pointer;">
+                                    <i class="bi bi-currency-euro text-primary me-1"></i> <strong>Precio Euro ($)</strong> 
+                                    <span class="badge bg-secondary-subtle text-dark border ms-1">
+                                        {% if lista_euro %}{{ lista_euro.operador }}{{ "%.0f"|format(lista_euro.valor_regla) }}% s/base{% else %}+0%{% endif %}
+                                    </span>
+                                </label>
+                            </div>
+
+                            <!-- Opción Mayorista -->
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="lista_opcion" id="opt_mayorista" value="mayorista">
+                                <label class="form-check-label fw-semibold text-info-emphasis" for="opt_mayorista" style="cursor: pointer;">
+                                    <i class="bi bi-boxes me-1"></i> <strong>Mayorista ($)</strong> 
+                                    <span class="badge bg-info-subtle text-info-emphasis border ms-1">
+                                        {% if lista_mayorista %}{{ lista_mayorista.operador }}{{ "%.0f"|format(lista_mayorista.valor_regla) }}% descuento{% endif %}
+                                    </span>
+                                </label>
+                            </div>
+
+                            <!-- Opción Efectivo Base -->
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="lista_opcion" id="opt_base" value="base">
+                                <label class="form-check-label fw-semibold text-success" for="opt_base" style="cursor: pointer;">
+                                    <i class="bi bi-cash me-1"></i> <strong>Precio Efectivo ($)</strong> 
+                                    <span class="badge bg-success-subtle text-success border ms-1">Precio Base</span>
+                                </label>
+                            </div>
+
+                            <hr class="my-2 border-secondary opacity-25">
+
+                            <!-- Opción Comparativa Completa -->
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="lista_opcion" id="opt_todas" value="todas">
+                                <label class="form-check-label fw-bold text-secondary" for="opt_todas" style="cursor: pointer;">
+                                    <i class="bi bi-table me-1"></i> Todas las Listas en Columnas (Comparativa)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Alcance y Stock -->
+                    <div class="bg-white p-3 rounded-3 border shadow-sm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-secondary mb-2 d-block">
+                                <i class="bi bi-ui-checks-grid me-1"></i> 3. Alcance de Productos
+                            </label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <div class="form-check bg-light p-2 px-3 rounded-3 border flex-fill">
+                                    <input class="form-check-input" type="radio" name="alcance" id="alc_sel" value="seleccionados">
+                                    <label class="form-check-label small fw-bold text-primary" for="alc_sel" style="cursor: pointer;">
+                                        <i class="bi bi-check2-square me-1"></i> Solo Seleccionados (<span id="modalCantSeleccionados">0</span>)
+                                    </label>
+                                </div>
+                                <div class="form-check bg-light p-2 px-3 rounded-3 border flex-fill">
+                                    <input class="form-check-input" type="radio" name="alcance" id="alc_cat" value="catalogo" checked>
+                                    <label class="form-check-label small fw-semibold" for="alc_cat" style="cursor: pointer;">
+                                        <i class="bi bi-boxes me-1"></i> Catálogo Completo
+                                    </label>
+                                </div>
+                                {% if q or categoria_id or estado_stock or es_dropshipping %}
+                                <div class="form-check bg-light p-2 px-3 rounded-3 border flex-fill">
+                                    <input class="form-check-input" type="radio" name="alcance" id="alc_filt" value="filtrados">
+                                    <label class="form-check-label small fw-semibold text-primary" for="alc_filt" style="cursor: pointer;">
+                                        <i class="bi bi-funnel me-1"></i> Solo Filtrados
+                                    </label>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="form-check form-switch pt-2 border-top">
+                            <input class="form-check-input" type="checkbox" name="mostrar_cantidad" id="chkMostrarCant" value="si" checked>
+                            <label class="form-check-label text-dark small fw-bold" for="chkMostrarCant" style="cursor: pointer;">
+                                Incluir columna de Cantidad / Stock
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 bg-light rounded-bottom-4 px-4 py-3">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onclick="setTimeout(() => bootstrap.Modal.getInstance(document.getElementById('modalExportarPrecios')).hide(), 1000)">
+                        <i class="bi bi-download me-1"></i> Descargar Archivo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.fila-producto:hover {
+    background-color: rgba(240, 244, 255, 0.4) !important;
+}
+.fila-producto td {
+    transition: background-color 0.15s ease;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- 1. GESTIÓN DE SELECCIÓN DE PRODUCTOS (CHECKBOXES) ---
+    const checkAll = document.getElementById('checkAll');
+    const checkItems = document.querySelectorAll('.check-item');
+    const barraSeleccion = document.getElementById('barraSeleccion');
+    const conteoSeleccionados = document.getElementById('conteoSeleccionados');
+    const modalCantSeleccionados = document.getElementById('modalCantSeleccionados');
+    const modalIdsSeleccionados = document.getElementById('modalIdsSeleccionados');
+    const alcSel = document.getElementById('alc_sel');
+    const alcCat = document.getElementById('alc_cat');
+
+    function actualizarSeleccion() {
+        const seleccionados = Array.from(document.querySelectorAll('.check-item:checked')).map(cb => cb.value);
+        const cant = seleccionados.length;
+
+        if (conteoSeleccionados) conteoSeleccionados.textContent = `${cant} producto${cant === 1 ? '' : 's'} seleccionado${cant === 1 ? '' : 's'}`;
+        if (modalCantSeleccionados) modalCantSeleccionados.textContent = cant;
+        if (modalIdsSeleccionados) modalIdsSeleccionados.value = seleccionados.join(',');
+
+        if (cant > 0) {
+            barraSeleccion.classList.remove('d-none');
+            barraSeleccion.classList.add('d-flex');
+            if (alcSel) {
+                alcSel.checked = true;
+                alcSel.disabled = false;
+            }
+        } else {
+            barraSeleccion.classList.add('d-none');
+            barraSeleccion.classList.remove('d-flex');
+            if (alcSel) {
+                alcSel.disabled = true;
+                if (alcCat) alcCat.checked = true;
+            }
+        }
+
+        if (checkAll) {
+            checkAll.checked = (cant > 0 && cant === checkItems.length);
+            checkAll.indeterminate = (cant > 0 && cant < checkItems.length);
+        }
+    }
+
+    if (checkAll) {
+        checkAll.addEventListener('change', function() {
+            checkItems.forEach(cb => cb.checked = checkAll.checked);
+            actualizarSeleccion();
+        });
+    }
+
+    checkItems.forEach(cb => {
+        cb.addEventListener('change', actualizarSeleccion);
+    });
+
+    window.deseleccionarTodos = function() {
+        if (checkAll) checkAll.checked = false;
+        checkItems.forEach(cb => cb.checked = false);
+        actualizarSeleccion();
+    };
+
+    window.abrirModalExportarSeleccionados = function() {
+        const modal = new bootstrap.Modal(document.getElementById('modalExportarPrecios'));
+        if (alcSel) alcSel.checked = true;
+        modal.show();
+    };
+
+    actualizarSeleccion();
+
+    // --- 2. MOSTRAR / OCULTAR COLUMNAS CON PERSISTENCIA (IGUAL A /productos) ---
+    const checkboxesCols = document.querySelectorAll('.col-toggle-precios');
+    const tabla = document.getElementById('tablaPrecios');
+
+    function aplicarVisibilidadColumna(colIdx, mostrar) {
+        const th = tabla.querySelector(`thead tr th:nth-child(${colIdx})`);
+        if (th) th.style.display = mostrar ? '' : 'none';
+
+        const tds = tabla.querySelectorAll(`tbody tr td:nth-child(${colIdx})`);
+        tds.forEach(td => td.style.display = mostrar ? '' : 'none');
+    }
+
+    // Restaurar estado guardado en localStorage
+    checkboxesCols.forEach(chk => {
+        const colIdx = parseInt(chk.getAttribute('data-col'));
+        const savedState = localStorage.getItem('col_toggle_precios_' + colIdx);
+        if (savedState !== null) {
+            chk.checked = (savedState === 'true');
+            aplicarVisibilidadColumna(colIdx, chk.checked);
+        }
+    });
+
+    checkboxesCols.forEach(chk => {
+        // Evitar que el dropdown se cierre al hacer clic
+        chk.parentElement.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        chk.addEventListener('change', function() {
+            const colIdx = parseInt(this.getAttribute('data-col'));
+            const mostrar = this.checked;
+
+            localStorage.setItem('col_toggle_precios_' + colIdx, mostrar);
+            aplicarVisibilidadColumna(colIdx, mostrar);
+        });
+    });
+});
+
+function resaltarMoneda(moneda, boton) {
+    document.querySelectorAll('.btn-filtro-moneda').forEach(b => b.classList.remove('active'));
+    boton.classList.add('active');
+
+    const colUsd = document.querySelectorAll('.col-precio-usd');
+    const colBcv = document.querySelectorAll('.col-precio-bcv');
+    const colUsdt = document.querySelectorAll('.col-precio-usdt');
+    const colEuro = document.querySelectorAll('.col-precio-euro');
+    const colMay = document.querySelectorAll('.col-precio-mayorista');
+
+    const todas = [colUsd, colBcv, colUsdt, colEuro, colMay];
+
+    if (moneda === 'todas') {
+        todas.forEach(cols => cols.forEach(el => el.style.opacity = '1'));
+    } else {
+        todas.forEach(cols => cols.forEach(el => el.style.opacity = '0.3'));
+        if (moneda === 'usd') colUsd.forEach(el => el.style.opacity = '1');
+        if (moneda === 'bcv') colBcv.forEach(el => el.style.opacity = '1');
+        if (moneda === 'usdt') colUsdt.forEach(el => el.style.opacity = '1');
+        if (moneda === 'euro') colEuro.forEach(el => el.style.opacity = '1');
+        if (moneda === 'mayorista') colMay.forEach(el => el.style.opacity = '1');
+    }
+}
+</script>
+{% endblock %}

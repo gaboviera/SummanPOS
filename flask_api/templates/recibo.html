@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* Estilos específicos para la vista del recibo (Estética de "Hoja de papel") */
+    .recibo-paper {
+        background-color: #fff !important;
+        color: #000 !important;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        border-radius: 4px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+    }
+
+    .table-custom th {
+        background-color: #e9ecef !important;
+        color: #000 !important;
+        border: 1px solid #dee2e6 !important;
+        font-size: 13px;
+        text-transform: uppercase;
+    }
+
+    .table-custom td {
+        border-bottom: 1px solid #dee2e6 !important;
+        padding: 8px;
+        font-size: 13px;
+        color: #000 !important;
+    }
+
+    .header-box {
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
+    /* Ocultamos elementos innecesarios al imprimir y quitamos márgenes */
+    @media print {
+        body {
+            background-color: #fff !important;
+        }
+        .container-main {
+            margin-top: 0 !important;
+            padding: 0 !important;
+        }
+        .recibo-paper {
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
+        .navbar, .btn-print, .no-print {
+            display: none !important;
+        }
+    }
+</style>
+
+<div class="row mt-4">
+    <div class="col-12 text-center mb-4 no-print">
+        <div class="row mb-3">
+            <div class="col-12 d-flex justify-content-between align-items-center">
+                <h2 class="text-white">
+                    <i class="bi bi-file-earmark-text"></i> 
+                    {% if es_devolucion %}
+                        COMPROBANTE DE DEVOLUCIÓN
+                    {% else %}
+                        GUÍA DE DESPACHO
+                    {% endif %}
+                </h2>
+                <button onclick="window.print()" class="btn btn-primary shadow">
+                    <i class="bi bi-printer"></i> Imprimir Recibo
+                </button>
+            </div>
+        </div>
+        <a href="/ventas/historial" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver al Historial
+        </a>
+    </div>
+
+    <!-- La "Hoja de Papel" -->
+    <div class="col-12">
+        <div class="recibo-paper" data-bs-theme="light">
+            <!-- Encabezado -->
+            <div class="row header-box mb-4">
+                <!-- Izquierda -->
+                <div class="col-4">
+                    <div class="fw-bold text-uppercase">Nombre y Apellido<br>ó Razón Social</div>
+                    <div class="mt-1 mb-2 border-bottom border-dark pb-1">{{ guia.cliente_nombre or 'N/A' }}</div>
+
+                    <div class="fw-bold text-uppercase mt-3">Domicilio Fiscal</div>
+                    <div class="mt-1 mb-2 border-bottom border-dark pb-1">{{ guia.cliente_direccion or 'N/A' }}</div>
+
+                    <div class="mt-3"><strong>Vendedor(a):</strong> {{ guia.vendedor_nombre or 'N/A' }}</div>
+                </div>
+
+                <!-- Centro -->
+                <div class="col-4 text-center">
+                    <div class="fw-bold fs-4 text-uppercase">GaboRepuestos Lara, C.A</div>
+                    <div class="mt-3"><strong>Teléfono:</strong></div>
+                    <div>{{ guia.cliente_telefono or 'N/A' }}</div>
+                </div>
+
+                <!-- Derecha -->
+                <div class="col-4 text-end">
+                    <div class="d-flex justify-content-between mb-2">
+                        <strong>Fecha:</strong>
+                        <span class="border-bottom border-dark px-2">{{ guia.fecha.strftime('%d/%m/%Y') if guia.fecha else '' }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <strong>RIF/C.I:</strong>
+                        <span class="border-bottom border-dark px-2">{{ guia.cliente_identificacion or 'N/A' }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mt-3 bg-light border border-dark p-2 text-center align-items-center">
+                        <span class="fw-bold" style="font-size: 11px;">Nº DE CONTROL / NOTA DE ENTREGA</span>
+                        <span class="fw-bold text-danger fs-5">{{ guia.referencia }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Productos -->
+            <table class="table table-custom mb-4 w-100">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width: 80px;">Cant.</th>
+                        <th style="width: 120px;">Código</th>
+                        <th>Descripción del artículo</th>
+                        <th class="text-end" style="width: 100px;">P. Unit ($)</th>
+                        <th class="text-end" style="width: 100px;">Total ($)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transacciones %}
+                    <tr>
+                        <td class="text-center">{{ t.cantidad }}</td>
+                        <td>{{ t.producto.descripcion.replace('CÓDIGO: ', '') if t.producto and t.producto.descripcion else '' }}</td>
+                        <td>{{ t.producto.nombre if t.producto else 'Desconocido' }}</td>
+                        <td class="text-end">${{ "{:,.2f}".format(t.producto.precio) if t.producto else '0.00' }}</td>
+                        <td class="text-end fw-bold">${{ "{:,.2f}".format(t.cantidad * (t.producto.precio if t.producto else 0)) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Pie de página -->
+            <div class="row header-box mt-5 align-items-end">
+                <div class="col-7">
+                    <div class="d-flex align-items-end mb-4">
+                        <strong style="width: 130px;">Despachado por:</strong>
+                        <div style="border-bottom: 1px solid #000; flex-grow: 1;"></div>
+                    </div>
+                    <div class="d-flex align-items-end mb-4">
+                        <strong style="width: 130px;">Recibido por:</strong>
+                        <div style="border-bottom: 1px solid #000; flex-grow: 1;"></div>
+                    </div>
+                    <div class="mt-4 text-center fw-bold fs-6 fst-italic">
+                        ¡Gracias por su confianza!
+                    </div>
+                </div>
+
+                <div class="col-5">
+                    <div class="d-flex justify-content-between mb-3 border p-2">
+                        <strong>Observaciones:</strong>
+                        <span class="text-muted">{{ guia.observaciones or 'Sin observaciones' }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-3 border border-2 border-dark p-2">
+                        <strong class="fs-5">TOTAL A PAGAR:</strong>
+                        <strong class="fs-4 text-success">${{ "{:,.2f}".format(guia.total) }}</strong>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

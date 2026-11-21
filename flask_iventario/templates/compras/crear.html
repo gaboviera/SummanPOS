@@ -1,0 +1,560 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12">
+        <h1 class="display-5 fw-bold text-primary mb-4 text-center">
+            <i class="bi bi-truck"></i> Crear Orden de Compra
+        </h1>
+    </div>
+
+    <!-- Mensajes Flash -->
+    <div class="col-12 mb-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Datos del Proveedor -->
+    <div class="col-12 mb-4">
+        <div class="card border-0 shadow mt-3 rounded-4 overflow-hidden">
+                        <div class="card-header bg-white border-bottom pt-3 d-flex justify-content-between align-items-center">
+                <h4 class="text-primary m-0"><i class="bi bi-person-lines-fill"></i> Datos del Proveedor</h4>
+                <a href="{{ url_for('compras.index') }}" class="btn btn-outline-secondary btn-sm rounded-pill">Volver a Órdenes</a>
+            </div>
+<div class="card-body">
+                <form id="formOrdenCompra" action="{{ url_for('compras.nueva_orden') }}" method="POST">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label text-primary fw-bold"><i class="bi bi-search"></i> Buscar Proveedor Guardado</label>
+                            <select id="buscadorContacto" class="form-select tom-select" placeholder="Escribe el nombre o RIF del proveedor...">
+                                <option value="">Seleccione un proveedor para autocompletar (Opcional)...</option>
+                                {% for c in contactos %}
+                                <option value="{{ c.id }}" data-identificacion="{{ c.identificacion }}" data-nombre="{{ c.nombre }}" data-direccion="{{ c.direccion }}" data-telefono="{{ c.telefono }}">{{ c.identificacion }} - {{ c.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="hidden" name="proveedor_id" id="hidden_proveedor_id">
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-dark fw-bold">Nombre o Razón Social</label>
+                            <input type="text" id="proveedor_nombre" name="proveedor_nombre" class="form-control" placeholder="Ej: REPUESTOS Y ACCESORIOS C.A" required>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label text-dark fw-bold">RIF / CI</label>
+                            <input type="text" id="proveedor_identificacion" name="proveedor_identificacion" class="form-control" placeholder="Ej: J-12345678-9">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-dark fw-bold">Dirección Fiscal</label>
+                            <input type="text" id="proveedor_direccion" name="proveedor_direccion" class="form-control" placeholder="Ej: AV. LARA CON CALLE 1...">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label text-dark fw-bold">Teléfono</label>
+                            <input type="text" id="proveedor_telefono" name="proveedor_telefono" class="form-control" placeholder="Ej: 0414-1234567">
+                        </div>
+                        <div class="col-md-9 mb-3">
+                            <label class="form-label text-dark fw-bold">Observaciones</label>
+                            <input type="text" name="observaciones" class="form-control" placeholder="Ej: Entrega urgente para el viernes por la mañana">
+                        </div>
+                    </div>
+                    <!-- Hidden div to hold the cart data for form submission -->
+                    <div id="hiddenCartInputs"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buscador de Productos -->
+    <div class="col-lg-6 mb-4">
+        <div class="card border-0 shadow rounded-4 overflow-hidden h-100">
+            <div class="card-header bg-white border-bottom pt-3">
+                <h4 class="text-primary"><i class="bi bi-search"></i> Buscar Producto</h4>
+            </div>
+            <div class="card-body bg-light">
+                <input type="text" id="buscador" class="form-control mb-3 form-control-lg" placeholder="Buscar por código, nombre o marca...">
+                
+                <div class="list-group" id="listaResultados" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Los resultados aparecerán aquí vía JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carrito de Compras -->
+    <div class="col-lg-6 mb-4">
+        <div class="card border-0 shadow rounded-4 overflow-hidden h-100">
+            <div class="card-header bg-white border-bottom pt-3">
+                <h4 class="text-success"><i class="bi bi-box-seam"></i> Productos a Pedir</h4>
+            </div>
+            <div class="card-body p-0 table-responsive bg-white">
+                <table class="table table-hover align-middle mb-0" id="tablaCarrito">
+                    <thead class="bg-light text-dark border-bottom">
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-center" style="width: 100px;">Cant.</th>
+                            <th class="text-center" style="width: 120px;">Costo c/u ($)</th>
+                            <th class="text-end">Subtotal</th>
+                            <th class="text-center">Quitar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoCarrito">
+                        <!-- El carrito se llena aquí -->
+                    </tbody>
+                </table>
+            </div>
+                        <div class="card-footer border-top bg-light p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="text-dark m-0 fw-bold">Total Orden:</h4>
+                    <h3 class="text-success m-0 fw-bold" id="totalCobrar">$0.00</h3>
+                </div>
+                <button class="btn btn-success btn-lg w-100 fw-bold rounded-pill shadow" id="btnCompletarOrden" disabled>
+                    <i class="bi bi-check-circle"></i> Generar Orden de Compra
+                </button>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+
+<!-- Modal Pago -->
+<div class="modal fade" id="modalPagoCompra" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i> Confirmar Pago a Proveedor</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3 bg-light p-3 rounded border">
+            <small class="text-muted d-block">Proveedor: <strong id="modalProveedorNombre" class="text-dark"></strong></small>
+            <div class="mt-2 text-end">
+                <span class="text-muted">Total de la Orden:</span>
+                <h4 class="text-success fw-bold m-0" id="modalTotalPagar">$0.00</h4>
+                <small class="text-primary fw-bold" id="modalTotalPagarBs">Bs. 0.00</small>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Condición de Pago</label>
+            <select class="form-select form-select-lg" id="tipoPago" onchange="toggleCredito()">
+                <option value="Contado">Al Contado (Pagado en su totalidad)</option>
+                <option value="Crédito">A Crédito (Pendiente / Cuotas)</option>
+            </select>
+        </div>
+        
+        <div id="opcionesCredito" style="display: none;" class="bg-light p-3 rounded border mb-3">
+            <div class="mb-3">
+                <label class="form-label fw-bold text-primary">Días de Plazo para Pagar</label>
+                <input type="number" class="form-control form-control-lg" id="diasPlazo" value="15" min="1">
+            </div>
+            <div class="mb-2">
+                <label class="form-label fw-bold text-primary">Abono Inicial (USD)</label>
+                <input type="number" class="form-control form-control-lg" id="abonoInicial" value="0.00" step="0.01" min="0" oninput="actualizarMontoDesdeAbonoCredito()">
+                <small class="text-muted"><i class="bi bi-info-circle"></i> Deja en 0 si no realizas ningún abono hoy.</small>
+            </div>
+        </div>
+
+        <!-- Calculadora en Bolívares opcional -->
+        <div class="card p-3 mb-3 border-start border-4 border-info bg-light" id="divCalculadoraCompra" style="display: none;">
+            <label class="form-label fw-bold text-info" id="lblCalcCompra"><i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa BCV)</label>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label small text-muted" id="lblMontoCalcCompra">Monto a Pagar en Bs.</label>
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="montoBsCompra" placeholder="0.00" oninput="calcularUsdDesdeBsCompra()">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small text-muted d-flex justify-content-between align-items-center w-100" id="lblTasaCalcCompra" style="margin-bottom: 2px;">
+                        <span>Tasa Utilizada</span>
+                        <div>
+                            <span class="badge bg-primary rounded-pill cursor-pointer" style="cursor:pointer; font-size:0.65rem;" onclick="setTasaCompra(tasaBcvActiva, 'BCV')" title="Usar BCV">BCV</span>
+                            <span class="badge bg-warning text-dark rounded-pill cursor-pointer" style="cursor:pointer; font-size:0.65rem;" onclick="setTasaCompra(tasaUsdtActiva, 'USDT')" title="Usar USDT">USDT</span>
+                            <span class="badge bg-info text-dark rounded-pill cursor-pointer" style="cursor:pointer; font-size:0.65rem;" onclick="setTasaCompra(tasaEuroActiva, 'Euro')" title="Usar Euro">EUR</span>
+                        </div>
+                    </label>
+                    <input type="number" step="0.0001" min="0.0001" class="form-control form-control-sm" id="tasaAplicadaCompra" value="{{ tasa_bcv }}" oninput="calcularBsDesdeUsdCompra()">
+                </div>
+            </div>
+            <small class="text-muted mt-1" style="font-size: 11px;">Al escribir en Bolívares, se actualizará automáticamente el valor a pagar en USD.</small>
+        </div>
+        
+        <div class="mb-3" id="grupoMontoPagarUSD">
+            <label class="form-label fw-bold" id="lblMontoPagarUSD">Monto a Pagar en Dólares (USD)</label>
+            <input type="number" step="0.01" min="0" class="form-control form-control-lg fw-bold text-success" id="montoPagarUSD" required placeholder="0.00" oninput="calcularBsDesdeUsdCompra()">
+        </div>
+
+        <div class="mb-3" id="grupoMetodoPago">
+            <label class="form-label fw-bold">Método de Pago</label>
+            <select class="form-select form-select-lg" id="pago_metodo_compra" required>
+                <option value="Transferencia Bancaria (Bs)">Transferencia Bancaria (Bs)</option>
+                <option value="Pago Móvil (Bs)">Pago Móvil (Bs)</option>
+                <option value="Efectivo USD">Efectivo USD</option>
+                <option value="Efectivo EUR">Efectivo EUR (Euro BCV)</option>
+                <option value="Binance USDT">Binance USDT</option>
+                <option value="Zelle">Zelle</option>
+                <option value="Efectivo Bs">Efectivo Bs</option>
+                <option value="Otro">Otro</option>
+            </select>
+        </div>
+
+        <div class="mb-3" id="grupoReferenciaPago">
+            <label class="form-label fw-bold">Referencia / Comprobante (Opcional)</label>
+            <input type="text" class="form-control" id="pago_referencia_compra" placeholder="Ej: Transf # 987654 ó Ref 123456">
+        </div>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary fw-bold px-4" id="btnConfirmarProcesar"><i class="bi bi-check-lg"></i> Generar Orden</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    const tasaBcvActiva = {{ tasa_bcv if tasa_bcv else 1 }};
+    const tasaEuroActiva = {{ tasa_euro if tasa_euro else 1 }};
+    const tasaUsdtActiva = {{ tasa_usdt if tasa_usdt else 1 }};
+    let monedaTasaCompra = 'BCV';
+
+    let todosLosProductos = [];
+    let carrito = [];
+    let totalGeneral = 0;
+
+    function setTasaCompra(tasa, nombre) {
+        document.getElementById('tasaAplicadaCompra').value = tasa.toFixed(4);
+        monedaTasaCompra = nombre;
+        document.getElementById('lblCalcCompra').innerHTML = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa ' + nombre + ')';
+        calcularBsDesdeUsdCompra();
+        
+        if (totalGeneral > 0) {
+            const totalBs = totalGeneral * tasa;
+            document.getElementById('modalTotalPagarBs').innerText = "Bs. " + totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " (Calculadora rápida (Tasa " + nombre + "))";
+        }
+    }
+
+    function calcularUsdDesdeBsCompra() {
+        const bs = parseFloat(document.getElementById('montoBsCompra').value) || 0;
+        const tasa = parseFloat(document.getElementById('tasaAplicadaCompra').value) || 1;
+        if (bs >= 0 && tasa > 0) {
+            const usd = bs / tasa;
+            document.getElementById('montoPagarUSD').value = usd.toFixed(2);
+            if (document.getElementById('tipoPago').value === 'Crédito') {
+                document.getElementById('abonoInicial').value = usd.toFixed(2);
+            }
+        }
+    }
+
+    function calcularBsDesdeUsdCompra() {
+        const divCalc = document.getElementById('divCalculadoraCompra');
+        if (divCalc.style.display !== 'none') {
+            const montoUsd = parseFloat(document.getElementById('montoPagarUSD').value) || 0;
+            const tasa = parseFloat(document.getElementById('tasaAplicadaCompra').value) || 1;
+            document.getElementById('montoBsCompra').value = (montoUsd * tasa).toFixed(2);
+        }
+    }
+
+    function actualizarMontoDesdeAbonoCredito() {
+        const abono = parseFloat(document.getElementById('abonoInicial').value) || 0;
+        document.getElementById('montoPagarUSD').value = abono.toFixed(2);
+        calcularBsDesdeUsdCompra();
+    }
+
+    function toggleCredito() {
+        const tipo = document.getElementById('tipoPago').value;
+        const opcionesCredito = document.getElementById('opcionesCredito');
+        const lblMontoPagar = document.getElementById('lblMontoPagarUSD');
+        const inputMontoPagar = document.getElementById('montoPagarUSD');
+        
+        if (tipo === 'Crédito') {
+            opcionesCredito.style.display = 'block';
+            lblMontoPagar.innerText = "Monto del Abono Inicial en Dólares (USD)";
+            inputMontoPagar.readOnly = false;
+            const abonoVal = parseFloat(document.getElementById('abonoInicial').value) || 0;
+            inputMontoPagar.value = abonoVal.toFixed(2);
+        } else {
+            opcionesCredito.style.display = 'none';
+            lblMontoPagar.innerText = "Monto Total Pagado (USD)";
+            inputMontoPagar.readOnly = true;
+            inputMontoPagar.value = totalGeneral.toFixed(2);
+        }
+        calcularBsDesdeUsdCompra();
+    }
+    window.toggleCredito = toggleCredito;
+
+    document.addEventListener("DOMContentLoaded", function () {
+        // Cargar productos desde la API específica de compras
+        fetch('/compras/api/productos')
+            .then(res => res.json())
+            .then(data => {
+                todosLosProductos = data;
+            });
+
+        const buscadorContacto = document.getElementById('buscadorContacto');
+        if (buscadorContacto) {
+            buscadorContacto.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    document.getElementById('hidden_proveedor_id').value = selectedOption.value;
+                    document.getElementById('proveedor_nombre').value = selectedOption.getAttribute('data-nombre') || '';
+                    document.getElementById('proveedor_identificacion').value = selectedOption.getAttribute('data-identificacion') || '';
+                    document.getElementById('proveedor_direccion').value = selectedOption.getAttribute('data-direccion') || '';
+                    document.getElementById('proveedor_telefono').value = selectedOption.getAttribute('data-telefono') || '';
+                }
+            });
+        }
+
+        const buscador = document.getElementById('buscador');
+        const listaResultados = document.getElementById('listaResultados');
+
+        buscador.addEventListener('keyup', (e) => {
+            const query = e.target.value.toLowerCase();
+            listaResultados.innerHTML = '';
+            
+            if (query.length < 2) return;
+
+            const resultados = todosLosProductos.filter(p => 
+                p.nombre?.toLowerCase().includes(query) || 
+                p.codigo?.toLowerCase().includes(query) || 
+                p.marca?.toLowerCase().includes(query)
+            ).slice(0, 6);
+
+            resultados.forEach(p => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+                btn.innerHTML = `
+                    <div>
+                        <h6 class="mb-0 text-dark fw-bold">
+                            ${p.nombre}
+                            ${p.es_dropshipping ? '<span class="badge bg-info text-dark ms-1" style="font-size: 0.7rem;"><i class="bi bi-airplane-fill me-1"></i>Dropshipping</span>' : ''}
+                        </h6>
+                        <small class="text-muted">Cód: ${p.codigo || 'N/A'} | Marca: ${p.marca || 'N/A'}</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-secondary">Stock Actual: ${p.stock}</span>
+                    </div>
+                `;
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    agregarAlCarrito(p);
+                    btn.classList.add('list-group-item-success');
+                    setTimeout(() => btn.classList.remove('list-group-item-success'), 200);
+                };
+                listaResultados.appendChild(btn);
+            });
+        });
+
+        // 4. Mostrar Modal de Procesar la Orden
+        document.getElementById('btnCompletarOrden').addEventListener('click', () => {
+            // Validar que exista nombre de proveedor
+            if (!document.getElementById('proveedor_nombre').value) {
+                alert("Debes ingresar el nombre del proveedor.");
+                return;
+            }
+
+            document.getElementById('modalProveedorNombre').innerText = document.getElementById('proveedor_nombre').value;
+            document.getElementById('modalTotalPagar').innerText = `$${totalGeneral.toFixed(2)}`;
+            
+            if (tasaBcvActiva > 0) {
+                const totalBs = totalGeneral * tasaBcvActiva;
+                document.getElementById('modalTotalPagarBs').innerText = "Bs. " + totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " (Tasa BCV hoy)";
+            } else {
+                document.getElementById('modalTotalPagarBs').innerText = "";
+            }
+
+            document.getElementById('abonoInicial').max = totalGeneral.toFixed(2);
+            document.getElementById('abonoInicial').value = "0.00";
+            document.getElementById('tipoPago').value = "Contado";
+            document.getElementById('montoPagarUSD').value = totalGeneral.toFixed(2);
+            toggleCredito();
+
+            const modal = new bootstrap.Modal(document.getElementById('modalPagoCompra'));
+            modal.show();
+            setTimeout(() => document.getElementById('pago_metodo_compra').dispatchEvent(new Event('change')), 100);
+        });
+
+        document.getElementById('btnConfirmarProcesar').addEventListener('click', () => {
+            const form = document.getElementById('formOrdenCompra');
+            
+            const tipoPago = document.getElementById('tipoPago').value;
+            const diasPlazo = document.getElementById('diasPlazo').value || 0;
+            const montoPagarUSD = parseFloat(document.getElementById('montoPagarUSD').value) || 0;
+            const abonoInicial = tipoPago === 'Crédito' ? montoPagarUSD : 0;
+            
+            if (tipoPago === 'Crédito' && abonoInicial > totalGeneral + 0.01) {
+                alert("El abono inicial no puede ser mayor al total de la orden.");
+                return;
+            }
+
+            document.getElementById('btnConfirmarProcesar').disabled = true;
+            document.getElementById('btnConfirmarProcesar').innerText = "Procesando...";
+
+            // Generar inputs ocultos para que viajen al backend en el formato que espera compras_routes.py
+            const hiddenDiv = document.getElementById('hiddenCartInputs');
+            hiddenDiv.innerHTML = '';
+            carrito.forEach(item => {
+                hiddenDiv.innerHTML += `
+                    <input type="hidden" name="producto_id[]" value="${item.id}">
+                    <input type="hidden" name="cantidad[]" value="${item.cantidad}">
+                    <input type="hidden" name="costo[]" value="${item.costo_compra}">
+                `;
+            });
+            
+            const metodo = document.getElementById('pago_metodo_compra').value;
+            const refPago = document.getElementById('pago_referencia_compra').value;
+            const tasaUsada = document.getElementById('tasaAplicadaCompra').value;
+            const montoMoneda = document.getElementById('montoBsCompra').value;
+
+            hiddenDiv.innerHTML += `
+                <input type="hidden" name="tipo_pago" value="${tipoPago}">
+                <input type="hidden" name="dias_plazo" value="${diasPlazo}">
+                <input type="hidden" name="abono_inicial" value="${abonoInicial}">
+                <input type="hidden" name="metodo" value="${metodo}">
+                <input type="hidden" name="referencia_pago" value="${refPago}">
+                <input type="hidden" name="tasa_usada" value="${tasaUsada}">
+                <input type="hidden" name="moneda_tasa" value="${monedaTasaCompra}">
+                <input type="hidden" name="monto_moneda" value="${montoMoneda}">
+            `;
+
+            form.submit();
+        });
+
+        document.getElementById('pago_metodo_compra').addEventListener('change', function() {
+            const metodo = this.value;
+            const divCalc = document.getElementById('divCalculadoraCompra');
+            
+            let requiereCalc = false;
+            let lblCalc = '';
+            let lblMonto = 'Monto a Pagar en Bs.';
+            let tasaAplicar = 1;
+            let nombreMoneda = 'BCV';
+
+            if (metodo.includes('BCV') || metodo.includes('Pago Móvil') || metodo.includes('Transferencia Bancaria') || metodo.includes('Efectivo Bs')) {
+                requiereCalc = true;
+                lblCalc = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa BCV)';
+                tasaAplicar = typeof tasaBcvActiva !== 'undefined' ? tasaBcvActiva : 1;
+                nombreMoneda = 'BCV';
+            } else if (metodo.includes('EUR') || metodo.includes('Euro')) {
+                requiereCalc = true;
+                lblCalc = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa Euro)';
+                tasaAplicar = typeof tasaEuroActiva !== 'undefined' ? tasaEuroActiva : 1;
+                nombreMoneda = 'Euro';
+            } else if (metodo.includes('USDT')) {
+                requiereCalc = true;
+                lblCalc = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa USDT)';
+                tasaAplicar = typeof tasaUsdtActiva !== 'undefined' ? tasaUsdtActiva : 1;
+                nombreMoneda = 'USDT';
+            }
+
+            if (requiereCalc) {
+                divCalc.style.display = 'block';
+                document.getElementById('lblCalcCompra').innerHTML = lblCalc;
+                document.getElementById('lblMontoCalcCompra').innerText = lblMonto;
+                document.getElementById('tasaAplicadaCompra').value = tasaAplicar.toFixed(4);
+                monedaTasaCompra = nombreMoneda;
+                
+                const montoUsd = parseFloat(document.getElementById('montoPagarUSD').value) || 0;
+                document.getElementById('montoBsCompra').value = (montoUsd * tasaAplicar).toFixed(2);
+                
+                if (totalGeneral > 0) {
+                    const totalBs = totalGeneral * tasaAplicar;
+                    document.getElementById('modalTotalPagarBs').innerText = "Bs. " + totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ` (${lblCalc.replace(/<[^>]*>?/gm, '').trim()})`;
+                }
+            } else {
+                divCalc.style.display = 'none';
+                document.getElementById('montoBsCompra').value = '';
+                
+                if (totalGeneral > 0) {
+                    const tasaOficial = typeof tasaBcvActiva !== 'undefined' ? tasaBcvActiva : 1;
+                    const totalBs = totalGeneral * tasaOficial;
+                    document.getElementById('modalTotalPagarBs').innerText = "Bs. " + totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " (Tasa BCV hoy)";
+                }
+            }
+        });
+    });
+
+    // 3. Lógica del Carrito
+    function agregarAlCarrito(producto) {
+        const existe = carrito.find(item => item.id === producto.id);
+        if (existe) {
+            existe.cantidad++;
+        } else {
+            // Usamos el último costo de compra como valor por defecto
+            carrito.push({ ...producto, cantidad: 1, costo_compra: producto.costo || 0 });
+        }
+        renderizarCarrito();
+    }
+
+    function renderizarCarrito() {
+        const cuerpoCarrito = document.getElementById('cuerpoCarrito');
+        cuerpoCarrito.innerHTML = '';
+        totalGeneral = 0;
+
+        carrito.forEach((item, index) => {
+            const subtotal = item.costo_compra * item.cantidad;
+            totalGeneral += subtotal;
+
+            cuerpoCarrito.innerHTML += `
+                <tr>
+                    <td>
+                        <div class="fw-bold text-dark">
+                            ${item.nombre}
+                            ${item.es_dropshipping ? '<span class="badge bg-info text-dark ms-1" style="font-size: 0.65rem;"><i class="bi bi-airplane-fill me-1"></i>DS</span>' : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center" 
+                               value="${item.cantidad}" min="1" 
+                               onchange="actualizarCantidad(${index}, this.value)">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center text-primary fw-bold" 
+                               value="${item.costo_compra}" step="0.01" min="0" 
+                               onchange="actualizarCosto(${index}, this.value)" placeholder="0.00">
+                    </td>
+                    <td class="text-end fw-bold text-success">
+                        $${subtotal.toFixed(2)}
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-outline-danger btn-sm" onclick="eliminarDelCarrito(${index})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('totalCobrar').innerText = `$${totalGeneral.toFixed(2)}`;
+        document.getElementById('btnCompletarOrden').disabled = carrito.length === 0;
+    }
+
+    window.actualizarCantidad = function(index, nuevaCantidad) {
+        const cant = parseInt(nuevaCantidad);
+        if (cant > 0) {
+            carrito[index].cantidad = cant;
+        }
+        renderizarCarrito();
+    };
+
+    window.actualizarCosto = function(index, nuevoCosto) {
+        const costo = parseFloat(nuevoCosto);
+        if (costo >= 0) {
+            carrito[index].costo_compra = costo;
+        }
+        renderizarCarrito();
+    };
+
+    window.eliminarDelCarrito = function(index) {
+        carrito.splice(index, 1);
+        renderizarCarrito();
+    };
+</script>
+{% endblock %}

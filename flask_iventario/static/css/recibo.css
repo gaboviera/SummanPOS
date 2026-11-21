@@ -1,0 +1,199 @@
+/* ==========================================================
+   RECIBO / GUÍA DE DESPACHO — estilos compartidos
+   ----------------------------------------------------------
+   Los usan los dos formatos:
+     · recibo.html            hoja membretada fiscal. Los datos del
+                              cliente sí se imprimen, el encabezado de
+                              la empresa no. Márgenes 4.3 / 2 / 1 cm.
+     · recibo_encabezado.html hoja normal, con los datos del cliente
+                              impresos. Márgenes 4.3 / 2 / 1 cm.
+
+   La geometría NO vive aquí: cada template la declara en los
+   atributos data-* de #reciboPaginado y recibo_paginador.js la
+   traduce a las variables CSS de abajo y a la regla @page.
+   ========================================================== */
+
+:root {
+    --ancho-hoja: 21.59cm;   /* carta vertical */
+    --alto-hoja: 27.94cm;
+    --margen-sup: 4.3cm;
+    --margen-inf: 2cm;
+    --margen-lat: 1cm;
+    --alto-util: 21.64cm;    /* --alto-hoja - sup - inf */
+}
+
+/* ---------- La hoja ---------- */
+.hoja {
+    width: var(--ancho-hoja);
+    height: var(--alto-hoja);
+    box-sizing: border-box;
+    padding: var(--margen-sup) var(--margen-lat) var(--margen-inf);
+    margin: 0 auto 24px;
+    background-color: #fff !important;
+    color: #000 !important;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    overflow: hidden;
+}
+
+/* Caja de contenido = exactamente el área útil.
+   Es flex para poder empujar el pie al fondo de cada página. */
+.hoja-contenido {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.bloque-pie {
+    margin-top: auto;   /* ancla el pie al fondo del área útil */
+    padding-top: 20px;
+}
+
+/* Mientras el paginador mide, las hojas crecen libremente. */
+#reciboPaginado.midiendo .hoja,
+#reciboPaginado.midiendo .hoja-contenido {
+    height: auto !important;
+    overflow: visible !important;
+}
+
+/* Origen de los datos: lo rellena Jinja y lo consume el paginador. */
+#reciboFuente {
+    display: none !important;
+}
+
+/* ---------- Tabla ---------- */
+.table-custom {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;   /* columnas idénticas en todas las páginas */
+}
+
+.table-custom th {
+    background-color: #ccc !important;
+    color: #000 !important;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 4px;
+    border: none !important;
+}
+
+.table-custom td {
+    padding: 2px 4px;
+    font-size: 11px;
+    color: #000 !important;
+    border: none !important;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+/* Modo "una línea por producto": el texto que no cabe se recorta con
+   puntos suspensivos en vez de saltar de línea, para que todas las
+   filas midan igual y entren más por página. El nombre completo queda
+   en el title, visible al pasar el ratón en pantalla. */
+#reciboPaginado.una-linea .table-custom td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+    word-wrap: normal;
+}
+
+/* ---------- Encabezado con datos del cliente ---------- */
+.header-info-table {
+    width: 100%;
+    margin-bottom: 10px;
+    font-size: 11px;
+}
+
+.header-info-table td {
+    vertical-align: top;
+    padding: 2px;
+}
+
+.despachamos-header {
+    background-color: #ccc !important;
+    font-weight: bold;
+    text-align: center;
+    padding: 4px;
+    margin-top: 5px;
+}
+
+/* ---------- Pie ---------- */
+.footer-section {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+}
+
+.footer-totals {
+    width: 250px;
+}
+
+.footer-totals div {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.footer-total-row {
+    background-color: #ccc !important;
+    font-weight: bold;
+    padding: 2px;
+}
+
+/* El TOTAL en grande sólo acompaña al formato sin encabezado, donde
+   los datos del cliente no aparecen en la hoja. */
+.total-sin-encabezado {
+    text-align: right;
+    font-weight: bold;
+    font-size: 16px;
+    padding-top: 10px;
+}
+
+/* ==========================================================
+   Impresión
+   ========================================================== */
+@media print {
+    html, body {
+        background-color: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        /* Conserva los fondos grises (#ccc) de cabeceras y fila TOTAL */
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .container-main, .container, .row, .col-12 {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .navbar, .btn, .btn-print, .no-print, nav, header, footer {
+        display: none !important;
+    }
+
+    /* Los márgenes los aporta @page en CADA página: aquí la hoja ocupa
+       exactamente el área útil y sin padding propio (si no, se sumaría
+       al margen físico y descuadraría el papel). */
+    .hoja {
+        width: 100% !important;
+        height: var(--alto-util) !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        page-break-after: always;
+        break-after: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .hoja:last-child {
+        page-break-after: auto;
+        break-after: auto;
+    }
+}

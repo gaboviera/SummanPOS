@@ -1,0 +1,88 @@
+name: Backup de la base de datos
+description: >
+  Vuelca la base con pg_dump desde un contenedor efimero y sube el .sql.gz
+  a Google Cloud Storage. Se usa desde deploy.yml (antes de migrar) y desde
+  db_migrations.yml (antes de upgrade, rollback o stamp), para que ninguna
+  operacion que toque el esquema corra sin red de seguridad.
+
+  El job que la invoque necesita 'permissions: id-token: write' para poder
+  autenticarse contra Google por Workload Identity Federation.
+
+inputs:
+  env_folder:
+    description: Entorno (dev, uat, prd). Da nombre a la red docker y a la ruta en el bucket.
+    required: true
+  motivo:
+    description: Texto corto que se imprime en el log, para saber que disparo el respaldo.
+    required: false
+    default: 'operacion sobre la base de datos'
+  pg_host:
+    required: true
+  pg_port:
+    required: true
+  pg_database:
+    required: true
+  pg_user:
+    required: true
+  pg_password:
+    required: true
+  gcp_wif_provider:
+    required: true
+  gcp_service_account:
+    required: true
+  gcp_bucket:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Volcar la base de datos
+      id: volcado
+      shell: bash
+      run: |
+        echo "Creando backup de seguridad antes de: ${{ inputs.motivo }}"
+        DIRECTORIO="/tmp/runner/backups"
+        mkdir -p "$DIRECTORIO"
+        FECHA=$(date +%Y-%m-%d_%H-%M-%S)
+        PREFIJO_HOST=$(docker info --format '{{.Name}}')_
+        ARCHIVO="$DIRECTORIO/${PREFIJO_HOST}db_${{ inputs.pg_database }}_${{ inputs.env_folder }}_${FECHA}.sql.gz"
+
+        # Contenedor efimero de postgres: el runner no necesita pg_dump instalado
+        # y la version del cliente queda fijada aqui, no en el host.
+        docker run --rm --network ${{ inputs.env_folder }}_shared_net \
+          -e PGPASSWORD="${{ inputs.pg_password }}" postgres:18-alpine \
+          pg_dump -h "${{ inputs.pg_host }}" -p "${{ inputs.pg_port }}" \
+                  -U "${{ inputs.pg_user }}" -d "${{ inputs.pg_database }}" -c \
+          | gzip > "$ARCHIVO"
+
+        # Un pg_dump que falla deja un .gz valido pero vacio, asi que se
+        # comprueba el tamaño: sin esto el deploy seguiria creyendo que hay copia.
+        TAMANO=$(stat -c %s "$ARCHIVO")
+        echo "Backup: $ARCHIVO ($TAMANO bytes)"
+        if [ "$TAMANO" -lt 1024 ]; then
+          echo "::error::El backup pesa $TAMANO bytes. El volcado fallo; se aborta."
+          exit 1
+        fi
+
+        echo "directorio=$DIRECTORIO" >> $GITHUB_OUTPUT
+        echo "fecha=$FECHA" >> $GITHUB_OUTPUT
+
+    - name: Google Cloud Auth (WIF)
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ inputs.gcp_wif_provider }}
+        service_account: ${{ inputs.gcp_service_account }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Subir a GCS
+      shell: bash
+      run: |
+        gcloud storage cp ${{ steps.volcado.outputs.directorio }}/* \
+          gs://${{ inputs.gcp_bucket }}/${{ inputs.env_folder }}/${{ steps.volcado.outputs.fecha }}/
+
+    - name: Limpiar archivos temporales
+      if: always()
+      shell: bash
+      run: rm -rf /tmp/runner/backups || true

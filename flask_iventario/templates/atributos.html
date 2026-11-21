@@ -1,0 +1,453 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12 d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-5 fw-bold text-primary m-0">
+            <i class="bi bi-tags-fill text-primary"></i> Gestión de Atributos
+        </h1>
+        <button class="btn btn-primary btn-lg" onclick="abrirModalNuevo()">
+            <i class="bi bi-plus-circle"></i> Nuevo Atributo
+        </button>
+    </div>
+
+    <!-- Tarjeta de Filtros -->
+    <div class="col-12 mb-4">
+        <div class="card border-0 shadow rounded-4 overflow-hidden">
+            <div class="card-body bg-light">
+                <form method="GET" action="{{ url_for('atributos.index') }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-9">
+                            <label class="form-label text-dark fw-bold">Buscar Atributo</label>
+                            <input type="text" name="q" class="form-control"
+                                placeholder="Buscar por Nombre de atributo..." value="{{ q }}">
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i>
+                                Buscar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensajes Flash -->
+    <div class="col-12 mb-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Tabla de Atributos -->
+    <div class="col-12">
+        <div class="card border-0 shadow mt-3 rounded-4 overflow-hidden">
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-hover align-middle mb-0 bg-white">
+                    <thead class="bg-light text-dark border-bottom">
+                        <tr>
+                            <th style="width: 10%;">ID</th>
+                            <th style="width: 70%;">Nombre del Atributo (Ej: Color, Marca, Talla)</th>
+                            <th class="text-center" style="width: 20%;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if atributos.items %}
+                        {% for a in atributos.items %}
+                        <tr>
+                            <td class="text-primary fw-bold">#{{ a.id }}</td>
+                            <td class="fw-bold text-dark">{{ a.nombre }}</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-info"
+                                    data-bs-toggle="modal" data-bs-target="#valoresModal"
+                                    onclick="abrirModalValores({{ a.id }}, '{{ a.nombre }}')">
+                                    <i class="bi bi-list-check"></i> Valores
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning"
+                                    onclick="abrirModalEditar({{ a.id }}, '{{ a.nombre }}')">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <form action="/atributos/eliminar/{{ a.id }}" method="POST" class="d-inline"
+                                    onsubmit="return confirm('¿Seguro que deseas eliminar este atributo? Si está asociado a productos, podría generar un error.');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-5">
+                                <h4>No se encontraron atributos.</h4>
+                                <p>Prueba buscando con otro nombre o registra uno nuevo.</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Paginador -->
+        {% if atributos.pages > 1 %}
+        <nav class="mt-4" aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not atributos.has_prev %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('atributos.index', page=atributos.prev_num, q=q) }}">Anterior</a>
+                </li>
+
+                {% for page_num in atributos.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                <li class="page-item {% if atributos.page == page_num %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('atributos.index', page=page_num, q=q) }}">{{ page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+
+                <li class="page-item {% if not atributos.has_next %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('atributos.index', page=atributos.next_num, q=q) }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Modal para Crear / Editar Atributo -->
+<div class="modal fade" id="atributoModal" tabindex="-1" aria-labelledby="atributoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-start">
+            <div class="modal-header">
+                <h5 class="modal-title" id="atributoModalLabel">Nuevo Atributo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/atributos/guardar" method="POST">
+                <div class="modal-body">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Atributo *</label>
+                        {{ form.nombre(class="form-control", id="atributo_nombre", required=True, placeholder="Ejemplo:
+                        Marca") }}
+                        <div class="form-text text-muted">Asegúrate de escribirlo correctamente para mantener
+                            consistencia.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Gestionar Valores -->
+<div class="modal fade" id="valoresModal" tabindex="-1" aria-labelledby="valoresModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content text-start shadow">
+            <div class="modal-header bg-light">
+                <div class="d-flex align-items-center">
+                    <h5 class="modal-title fw-bold text-dark mb-0" id="valoresModalLabel">Valores de Atributo</h5>
+                    <span id="contador_valores_badge" class="badge bg-primary ms-2 rounded-pill">0</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="current_atributo_id">
+
+                <!-- Añadir nuevo valor -->
+                <div class="mb-3">
+                    <label class="form-label small text-muted fw-bold">AGREGAR NUEVO VALOR</label>
+                    <div class="input-group">
+                        <input type="text" id="nuevo_valor_input" class="form-control" placeholder="Ej: Toyota, Ford, Bosch...">
+                        <button class="btn btn-success" type="button" onclick="agregarValor()">
+                            <i class="bi bi-plus-lg"></i> Añadir
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Buscador rápido dentro del modal -->
+                <div class="mb-3">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white text-muted border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" id="filtro_valor_input" class="form-control border-start-0" placeholder="Buscar en la lista..." oninput="filtrarValoresModal()">
+                    </div>
+                </div>
+
+                <!-- Mensaje de error / aviso interno -->
+                <div id="valores_error" class="alert alert-danger d-none py-2 small" role="alert"></div>
+
+                <!-- Lista de valores -->
+                <ul class="list-group list-group-flush border rounded" id="lista_valores" style="max-height: 360px; overflow-y: auto;">
+                    <li class="list-group-item text-center text-muted py-4">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        Cargando valores...
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let myModal;
+    let valoresModal;
+    let listaValoresCache = [];
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const modalAtributoEl = document.getElementById('atributoModal');
+        if (modalAtributoEl && typeof bootstrap !== 'undefined') {
+            myModal = bootstrap.Modal.getOrCreateInstance(modalAtributoEl);
+        }
+        const modalValoresEl = document.getElementById('valoresModal');
+        if (modalValoresEl && typeof bootstrap !== 'undefined') {
+            valoresModal = bootstrap.Modal.getOrCreateInstance(modalValoresEl);
+        }
+
+        const valInput = document.getElementById('nuevo_valor_input');
+        if (valInput) {
+            valInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    agregarValor();
+                }
+            });
+        }
+    });
+
+    function abrirModalNuevo() {
+        const modalAtributoEl = document.getElementById('atributoModal');
+        if (!myModal && modalAtributoEl && typeof bootstrap !== 'undefined') {
+            myModal = bootstrap.Modal.getOrCreateInstance(modalAtributoEl);
+        }
+        const lbl = document.getElementById('atributoModalLabel');
+        if (lbl) lbl.innerText = 'Nuevo Atributo';
+        const idInput = document.getElementById('atributo_id');
+        if (idInput) idInput.value = '';
+        const nomInput = document.getElementById('atributo_nombre');
+        if (nomInput) nomInput.value = '';
+        if (myModal) myModal.show();
+    }
+
+    function abrirModalEditar(id, nombre) {
+        const modalAtributoEl = document.getElementById('atributoModal');
+        if (!myModal && modalAtributoEl && typeof bootstrap !== 'undefined') {
+            myModal = bootstrap.Modal.getOrCreateInstance(modalAtributoEl);
+        }
+        const lbl = document.getElementById('atributoModalLabel');
+        if (lbl) lbl.innerText = 'Editar Atributo';
+        const idInput = document.getElementById('atributo_id');
+        if (idInput) idInput.value = id;
+        const nomInput = document.getElementById('atributo_nombre');
+        if (nomInput) nomInput.value = nombre;
+        if (myModal) myModal.show();
+    }
+
+    /* ==============================================================
+       Lógica AJAX para los Valores
+       ============================================================== */
+    function abrirModalValores(id, nombre) {
+        const lbl = document.getElementById('valoresModalLabel');
+        if (lbl) lbl.innerText = 'Valores para: ' + nombre;
+        
+        const curId = document.getElementById('current_atributo_id');
+        if (curId) curId.value = id;
+        
+        const nuevoInput = document.getElementById('nuevo_valor_input');
+        if (nuevoInput) nuevoInput.value = '';
+        
+        const filtroInput = document.getElementById('filtro_valor_input');
+        if (filtroInput) filtroInput.value = '';
+        
+        const errorDiv = document.getElementById('valores_error');
+        if (errorDiv) {
+            errorDiv.classList.add('d-none');
+            errorDiv.innerText = '';
+        }
+
+        cargarValores(id);
+        
+        const modalValoresEl = document.getElementById('valoresModal');
+        if (!valoresModal && modalValoresEl && typeof bootstrap !== 'undefined') {
+            valoresModal = bootstrap.Modal.getOrCreateInstance(modalValoresEl);
+        }
+        if (valoresModal) {
+            valoresModal.show();
+        }
+    }
+
+    async function cargarValores(atributoId) {
+        const ul = document.getElementById('lista_valores');
+        const badge = document.getElementById('contador_valores_badge');
+        if (ul) {
+            ul.innerHTML = '<li class="list-group-item text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando valores...</li>';
+        }
+        if (badge) badge.innerText = '...';
+
+        try {
+            const resp = await fetch(`/api/atributos/${atributoId}/valores?t=${Date.now()}`);
+            const data = await resp.json();
+
+            if (data.success) {
+                listaValoresCache = data.valores || [];
+                if (badge) badge.innerText = listaValoresCache.length;
+                renderizarListaValores(listaValoresCache);
+            } else {
+                if (ul) ul.innerHTML = `<li class="list-group-item text-danger text-center py-3">Error: ${data.message}</li>`;
+                if (badge) badge.innerText = '0';
+            }
+        } catch (e) {
+            if (ul) ul.innerHTML = `<li class="list-group-item text-danger text-center py-3">Error de conexión al cargar valores.</li>`;
+            if (badge) badge.innerText = '0';
+        }
+    }
+
+    function filtrarValoresModal() {
+        const filtroInput = document.getElementById('filtro_valor_input');
+        const termino = (filtroInput ? filtroInput.value : '').toLowerCase().trim();
+        if (!termino) {
+            renderizarListaValores(listaValoresCache);
+            return;
+        }
+        const filtrados = listaValoresCache.filter(v => v.valor.toLowerCase().includes(termino));
+        renderizarListaValores(filtrados, true);
+    }
+
+    function renderizarListaValores(valores, esFiltro = false) {
+        const ul = document.getElementById('lista_valores');
+        if (!ul) return;
+        ul.innerHTML = '';
+
+        if (!valores || valores.length === 0) {
+            if (esFiltro) {
+                ul.innerHTML = '<li class="list-group-item text-center text-muted py-3"><i class="bi bi-search d-block fs-4 text-secondary mb-1"></i>No se encontraron valores con ese filtro.</li>';
+            } else {
+                ul.innerHTML = '<li class="list-group-item text-center text-muted py-3">Aún no hay valores configurados para este atributo.</li>';
+            }
+            return;
+        }
+
+        valores.forEach(v => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center px-3 py-2 border-bottom';
+            li.id = 'valor_li_' + v.id;
+            li.innerHTML = `
+                <span class="fw-medium text-dark">${v.valor}</span>
+                <button class="btn btn-sm btn-outline-danger border-0 rounded-circle" type="button" onclick="eliminarValor(${v.id})" title="Eliminar valor">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+            ul.appendChild(li);
+        });
+    }
+
+    async function agregarValor() {
+        const atributoIdInput = document.getElementById('current_atributo_id');
+        const atributoId = atributoIdInput ? atributoIdInput.value : null;
+        const input = document.getElementById('nuevo_valor_input');
+        const valorText = input ? input.value.trim() : '';
+        const errorDiv = document.getElementById('valores_error');
+
+        if (!valorText || !atributoId) return;
+
+        try {
+            const resp = await fetch(`/api/atributos/${atributoId}/valores`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ valor: valorText })
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                if (input) input.value = '';
+                if (errorDiv) errorDiv.classList.add('d-none');
+                
+                // Añadir al cache local si no está ya
+                const existeEnCache = listaValoresCache.find(v => v.id === data.valor.id);
+                if (!existeEnCache) {
+                    listaValoresCache.push(data.valor);
+                    listaValoresCache.sort((a, b) => a.valor.localeCompare(b.valor));
+                }
+                
+                const badge = document.getElementById('contador_valores_badge');
+                if (badge) badge.innerText = listaValoresCache.length;
+                
+                // Limpiar filtro y renderizar
+                const filtroInput = document.getElementById('filtro_valor_input');
+                if (filtroInput) filtroInput.value = '';
+                renderizarListaValores(listaValoresCache);
+            } else {
+                if (errorDiv) {
+                    errorDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${data.message}`;
+                    errorDiv.className = 'alert alert-warning py-2 small';
+                    errorDiv.classList.remove('d-none');
+                }
+                // Si ya existía, filtramos para mostrárselo
+                const filtroInput = document.getElementById('filtro_valor_input');
+                if (filtroInput) {
+                    filtroInput.value = valorText;
+                    filtrarValoresModal();
+                }
+            }
+        } catch (e) {
+            if (errorDiv) {
+                errorDiv.innerText = 'Error de conexión al guardar.';
+                errorDiv.className = 'alert alert-danger py-2 small';
+                errorDiv.classList.remove('d-none');
+            }
+        }
+    }
+
+    async function eliminarValor(valorId) {
+        if (!confirm('¿Seguro que deseas eliminar este valor?')) return;
+
+        const atributoIdInput = document.getElementById('current_atributo_id');
+        const atributoId = atributoIdInput ? atributoIdInput.value : null;
+        const errorDiv = document.getElementById('valores_error');
+
+        try {
+            const resp = await fetch(`/api/valores/${valorId}`, { method: 'DELETE' });
+            const data = await resp.json();
+
+            if (data.success) {
+                if (errorDiv) errorDiv.classList.add('d-none');
+                
+                listaValoresCache = listaValoresCache.filter(v => v.id !== valorId);
+                const badge = document.getElementById('contador_valores_badge');
+                if (badge) badge.innerText = listaValoresCache.length;
+                
+                filtrarValoresModal();
+            } else {
+                if (errorDiv) {
+                    errorDiv.innerText = data.message;
+                    errorDiv.className = 'alert alert-danger py-2 small';
+                    errorDiv.classList.remove('d-none');
+                }
+            }
+        } catch (e) {
+            if (errorDiv) {
+                errorDiv.innerText = 'Error de conexión al eliminar.';
+                errorDiv.className = 'alert alert-danger py-2 small';
+                errorDiv.classList.remove('d-none');
+            }
+        }
+    }
+</script>
+{% endblock %}

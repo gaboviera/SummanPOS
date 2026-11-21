@@ -1,0 +1,54 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="text-primary"><i class="bi bi-sliders"></i> Módulos y Funciones del Sistema</h2>
+        <p class="text-secondary">Activa o desactiva módulos avanzados según el modelo de negocio de tu empresa.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8 col-lg-7">
+        <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-gear-wide-connected me-2"></i> Control de Módulos Opcionales</h5>
+            </div>
+            <div class="card-body p-4 bg-white">
+                <form method="POST" action="{{ url_for('configuracion.modulos') }}">
+                    <div class="p-3 rounded-4 border bg-light mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark">
+                                    <i class="bi bi-airplane-engines me-2 text-primary"></i> Módulo de Dropshipping
+                                </h6>
+                                <p class="text-muted small mb-0">
+                                    Habilita pedidos de proveedores externos sin inventario propio, envíos directos y órdenes de dropshipping.
+                                </p>
+                            </div>
+                            <div class="form-check form-switch fs-4 ms-3">
+                                <input class="form-check-input" type="checkbox" name="modulo_dropshipping_activo" id="switchDropshipping" role="switch" {% if ds_activo %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            {% if ds_activo %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i> Módulo Activo en el Menú y Ventas</span>
+                            {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="bi bi-eye-slash me-1"></i> Módulo Desactivado (Oculto en Menús y Ventas)</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info border-0 rounded-3 small mb-4">
+                        <i class="bi bi-info-circle-fill me-1"></i> <strong>Nota:</strong> Al desactivar Dropshipping, la mercancía se gestiona exclusivamente a través de inventario físico propio con control de stock estándar, y las opciones de dropshipping se ocultan en toda la aplicación.
+                    </div>
+
+                    <button type="submit" class="btn btn-primary px-4 py-2 fw-bold rounded-pill">
+                        <i class="bi bi-save me-1"></i> Guardar Cambios
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

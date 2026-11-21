@@ -1,0 +1,31 @@
+version: '3.8'
+name: ${ENV_FOLDER}-summanpos
+
+services:
+  inventario_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gabrielviera2000/flask-inventario:latest
+    restart: always
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGHOST=${PGHOST}
+      - PGPORT=${PGPORT}
+      - PGDATABASE=${PGDATABASE}
+      - PGSSLMODE=${PGSSLMODE:-prefer}
+    volumes:
+      - inventario_uploads:/app/static/uploads
+    networks:
+      - frontend
+
+networks:
+  frontend:
+    name: ${ENV_FOLDER}_shared_net
+    external: true
+
+volumes:
+  inventario_uploads:

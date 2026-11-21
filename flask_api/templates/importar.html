@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card bg-dark border-secondary shadow-lg">
+            <div class="card-header border-secondary text-center py-3">
+                <h3 class="mb-0 text-primary">Carga Masiva de Inventario</h3>
+            </div>
+            <div class="card-body p-4">
+                
+                <!-- Aquí mostramos los mensajes de éxito (verde) o error (rojo) que manda Flask -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <!-- Formulario para enviar el archivo -->
+                <!-- enctype="multipart/form-data" es OBLIGATORIO para subir archivos -->
+                <form method="POST" action="/importar" enctype="multipart/form-data">
+                    
+                    <!-- Token de seguridad de WTForms (Protege contra Hackers/CSRF) -->
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-4">
+                        <label for="archivo" class="form-label text-light">Selecciona tu archivo Excel (.xlsx) o CSV</label>
+                        <!-- Inyectamos el campo 'archivo' de nuestro form de Python, con diseño de Bootstrap -->
+                        {{ form.archivo(class="form-control bg-dark text-light border-secondary", id="archivo") }}
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg shadow-sm">
+                            Subir e Importar
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

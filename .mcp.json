@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--viewport-size",
+        "1366x768",
+        "--headless"
+      ]
+    },
+    "context7": {
+      "command": "node",
+      "args": [
+        "C:/Users/vzla_/mcp-servers/context7-mcp/node_modules/@upstash/context7-mcp/dist/index.js"
+      ]
+    },
+    "higgsfield": {
+      "type": "http",
+      "url": "https://mcp.higgsfield.ai/mcp",
+      "serverUrl": "https://mcp.higgsfield.ai/mcp"
+    },
+    "21st": {
+      "type": "http",
+      "url": "https://21st.dev/api/mcp",
+      "headers": {
+        "x-api-key": "${TWENTYFIRST_API_KEY}"
+      }
+    }
+  }
+}

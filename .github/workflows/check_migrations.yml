@@ -1,0 +1,132 @@
+name: CI - Verificación de Migraciones
+
+on:
+  push:
+    branches: [ dev, main ]
+  pull_request:
+    branches: [ dev, main ]
+
+env:
+  # Numpy 2.5.1 requiere Python >= 3.12
+  PYTHON_VERSION: '3.12'
+  VENV_PATH: /home/runner/ci-venv
+
+jobs:
+  check_migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: flask_iventario/requirements.txt
+
+      - name: Instalar librerías del sistema (WeasyPrint / Pillow)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 \
+            libpangoft2-1.0-0 \
+            libjpeg-dev \
+            libopenjp2-7-dev \
+            libffi-dev
+
+      - name: Crear entorno virtual e instalar dependencias
+        working-directory: flask_iventario
+        run: |
+          # El venv vive FUERA del repo para no ensuciar 'git status'
+          python -m venv "$VENV_PATH"
+          "$VENV_PATH/bin/python" -m pip install --upgrade pip
+          "$VENV_PATH/bin/pip" install --no-cache-dir -r requirements.txt
+          echo "--- Entorno virtual listo ---"
+          "$VENV_PATH/bin/python" --version
+          "$VENV_PATH/bin/pip" --version
+
+      - name: Validar Migraciones (Alembic / Flask-Migrate)
+        working-directory: flask_iventario
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGDATABASE: test_db
+          PGUSER: test_user
+          PGPASSWORD: test_password
+          FLASK_APP: app.py
+          # Evita que el import de app.py ejecute db.create_all() y cree las
+          # tablas antes de que Alembic pueda hacerlo.
+          SKIP_DB_BOOTSTRAP: '1'
+        run: |
+          source "$VENV_PATH/bin/activate"
+          echo "Usando Python: $(which python)"
+
+          # Publica la salida de un comando fallido como anotacion de GitHub,
+          # para poder diagnosticar sin descargar los logs crudos del run.
+          run_step() {
+            local titulo="$1"; shift
+            echo "Ejecutando: $titulo"
+            if ! "$@" > /tmp/step.log 2>&1; then
+              echo "::group::Salida completa de: $titulo"
+              cat /tmp/step.log
+              echo "::endgroup::"
+              { grep -iE "error|exception|sqlalchemy\.|psycopg2\." /tmp/step.log | tail -n 6; tail -n 2 /tmp/step.log; } | while IFS= read -r linea; do
+                echo "::error title=$titulo::$linea"
+              done
+              return 1
+            fi
+            cat /tmp/step.log
+          }
+
+          # 1. Aplicar las migraciones existentes a la BD de prueba
+          run_step "flask db upgrade" flask db upgrade
+
+          # 2. Intentar generar una nueva migración
+          run_step "flask db migrate" flask db migrate -m "CI Check"
+
+          # 3. Revisar si git detecta un nuevo archivo de migración creado
+          if git status --porcelain | grep -q "migrations/versions"; then
+            echo "::error::Hay modelos modificados que no tienen su correspondiente archivo de migración."
+            echo "::error::Debes ejecutar 'flask db migrate -m \"tu_mensaje\"' localmente y hacer commit del archivo generado."
+            git status --porcelain | grep "migrations/versions"
+            exit 1
+          else
+            echo "¡Todo correcto! Las migraciones están sincronizadas con los modelos."
+          fi
+
+      - name: Apagar base de datos temporal
+        if: always()
+        run: |
+          echo "Deteniendo y eliminando la base de datos temporal de PostgreSQL..."
+          IDS=$(docker ps -aq --filter "ancestor=postgres:15" || true)
+          if [ -n "$IDS" ]; then
+            docker stop $IDS || true
+            docker rm -f -v $IDS || true
+            echo "Contenedores de PostgreSQL eliminados."
+          else
+            echo "No se encontraron contenedores de PostgreSQL activos."
+          fi
+          docker volume prune -f || true
+          echo "Limpieza completada."
+
+      - name: Limpiar entorno virtual
+        if: always()
+        run: |
+          rm -rf "$VENV_PATH"
+          echo "Entorno virtual eliminado."

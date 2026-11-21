@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* Estilos específicos para la vista del recibo (Estética de "Hoja de papel") */
+    .recibo-paper {
+        background-color: #fff !important;
+        color: #000 !important;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 40px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        border-radius: 4px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+    }
+
+    .table-custom th {
+        background-color: #e9ecef !important;
+        color: #000 !important;
+        border: 1px solid #dee2e6 !important;
+        font-size: 13px;
+        text-transform: uppercase;
+    }
+
+    .table-custom td {
+        border-bottom: 1px solid #dee2e6 !important;
+        padding: 8px;
+        font-size: 13px;
+        color: #000 !important;
+    }
+
+    .header-box {
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
+    /* Ocultamos elementos innecesarios al imprimir y quitamos márgenes */
+    @media print {
+        @page { size: landscape; }
+        body {
+            background-color: #fff !important;
+        }
+        .container-main {
+            margin-top: 0 !important;
+            padding: 0 !important;
+        }
+        .recibo-paper {
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
+        .navbar, .btn-print, .no-print {
+            display: none !important;
+        }
+    }
+</style>
+
+<div class="row mt-4">
+    <div class="col-12 text-center mb-4 no-print">
+        <div class="row mb-3">
+            <div class="col-12 d-flex justify-content-between align-items-center">
+                <h2 class="text-primary m-0">
+                    <i class="bi bi-airplane-engines"></i> 
+                    REPORTE DE DROPSHIPPING
+                </h2>
+                <button onclick="window.print()" class="btn btn-primary shadow">
+                    <i class="bi bi-printer"></i> Imprimir Reporte
+                </button>
+            </div>
+        </div>
+        <a href="{{ url_for('dropshipping.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Órdenes
+        </a>
+    </div>
+
+    <!-- La "Hoja de Papel" -->
+    <div class="col-12">
+        <div class="recibo-paper" data-bs-theme="light">
+            <!-- Encabezado -->
+            <div class="row header-box mb-4">
+                <div class="col-6">
+                    <div class="fw-bold fs-4 text-uppercase">Repuestos Luisauris</div>
+                    <div class="mt-2 text-muted">REPORTE CONSOLIDADO DE DROPSHIPPING</div>
+                </div>
+
+                <div class="col-6 text-end">
+                    <div class="d-flex justify-content-end mb-2">
+                        <strong class="me-2">Fecha de Emisión:</strong>
+                        <span class="border-bottom border-dark px-2">{{ fecha }}</span>
+                    </div>
+                    <div class="d-flex justify-content-end mb-2">
+                        <strong class="me-2">Generado por:</strong>
+                        <span class="border-bottom border-dark px-2">{{ current_user.nombre if current_user else 'Sistema' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Órdenes -->
+            <table class="table table-custom mb-4 w-100">
+                <thead>
+                    <tr>
+                        <th>Ref</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Proveedor</th>
+                        <th class="text-center">Por Cobrar</th>
+                        <th class="text-center">Por Pagar</th>
+                        <th>Estado</th>
+                        <th class="text-end">Ventas</th>
+                        <th class="text-end">Costos</th>
+                        <th class="text-end">Ganancia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set totales = {'ganancia': 0, 'ventas': 0, 'costos': 0} %}
+                    {% for orden in ordenes %}
+                    <tr>
+                        <td class="fw-bold">{{ orden.referencia }}</td>
+                        <td>{{ orden.fecha_creacion.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ orden.cliente.nombre }}</td>
+                        <td>{{ orden.proveedor.nombre }}</td>
+                        <td class="text-center">
+                            {{ orden.pago_cliente_estado }}
+                            {% if orden.pago_cliente_estado == 'Parcial' and orden.pago_cliente_monto > 0 %}
+                                <br><small class="text-muted">(${{ "%.2f"|format(orden.pago_cliente_monto) }})</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {{ orden.pago_proveedor_estado }}
+                            {% if orden.pago_proveedor_estado == 'Parcial' and orden.pago_proveedor_monto > 0 %}
+                                <br><small class="text-muted">(${{ "%.2f"|format(orden.pago_proveedor_monto) }})</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ orden.estado }}</td>
+                        <td class="text-end">${{ "%.2f"|format(orden.venta_total) }}</td>
+                        <td class="text-end">${{ "%.2f"|format(orden.costo_total) }}</td>
+                        <td class="text-end fw-bold text-success">${{ "%.2f"|format(orden.ganancia) }}</td>
+                        
+                        {% set _ = totales.update({'ganancia': totales.ganancia + orden.ganancia}) %}
+                        {% set _ = totales.update({'ventas': totales.ventas + orden.venta_total}) %}
+                        {% set _ = totales.update({'costos': totales.costos + orden.costo_total}) %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center">No hay órdenes de dropshipping registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="7" class="text-end">TOTALES:</th>
+                        <th class="text-end">${{ "%.2f"|format(totales.ventas) }}</th>
+                        <th class="text-end">${{ "%.2f"|format(totales.costos) }}</th>
+                        <th class="text-end text-success fs-6">${{ "%.2f"|format(totales.ganancia) }}</th>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="row header-box mt-5 text-center">
+                <div class="col-12 text-muted fst-italic" style="font-size: 11px;">
+                    Documento generado automáticamente por el Sistema de Control de Inventario.<br>
+                    Las columnas de cuentas representan el estatus del pago de las transacciones.
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

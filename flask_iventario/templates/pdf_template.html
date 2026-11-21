@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Inventario</title>
+    <style>
+        /* Estilos diseñados específicamente para imprimir en PDF (A4) */
+        @page {
+            size: A4;
+            margin: 0.5cm;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        .header h1 {
+            color: #1e293b;
+            margin: 0 0 2px 0;
+            font-size: 14pt;
+        }
+        .header p {
+            margin: 0;
+            color: #64748b;
+            font-size: 9pt;
+        }
+        .info-box {
+            background-color: #f8fafc;
+            padding: 4px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            margin-bottom: 8px;
+            font-size: 7pt;
+            color: #475569;
+            display: flex;
+            justify-content: space-between;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 7pt;
+            color: #334155;
+        }
+        th {
+            background-color: #f1f5f9;
+            color: #1e293b;
+            text-align: left;
+            padding: 3px;
+            font-weight: bold;
+            border-bottom: 1px solid #cbd5e1;
+        }
+        td {
+            padding: 2px 3px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .badge {
+            color: #64748b;
+            font-size: 6pt;
+            margin-left: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>REPORTE DE INVENTARIO</h1>
+        <p>Valuación Oficial</p>
+    </div>
+
+    <div class="info-box">
+        <div><strong>Fecha de Emisión:</strong> {{ fecha }}</div>
+        <div>
+            <strong>Tasa BCV Aplicada:</strong> 
+            {% if tasa_bcv %}
+                {{ "%.2f"|format(tasa_bcv.tasa) }} Bs.
+            {% else %}
+                No Registrada
+            {% endif %}
+        </div>
+    </div>
+
+    {% set col_count = 2 %}
+    {% if mostrar_cantidad %}{% set col_count = col_count + 1 %}{% endif %}
+    {% if mostrar_margenes %}{% set col_count = col_count + 4 %}{% endif %}
+    {% if not moneda_publico or moneda_publico in ['usd', 'ambas'] or mostrar_margenes %}{% set col_count = col_count + 1 %}{% endif %}
+    {% if not moneda_publico or moneda_publico in ['bs', 'ambas'] or mostrar_margenes %}{% set col_count = col_count + 1 %}{% endif %}
+    {% if not moneda_publico or moneda_publico in ['usdt', 'ambas'] or mostrar_margenes %}{% set col_count = col_count + 1 %}{% endif %}
+    {% if not moneda_publico or moneda_publico in ['euro', 'ambas'] or mostrar_margenes %}{% set col_count = col_count + 1 %}{% endif %}
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 15%;">CÓD.</th>
+                <th style="width: 45%;">NOMBRE / ATRIBUTOS</th>
+                {% if mostrar_cantidad %}
+                <th class="text-center" style="width: 10%;">CANT.</th>
+                {% endif %}
+                {% if mostrar_margenes %}
+                <th class="text-right">COSTO($)</th>
+                {% endif %}
+                {% if not moneda_publico or moneda_publico in ['usd', 'ambas'] or mostrar_margenes %}<th class="text-right">PRECIO($)</th>{% endif %}
+                {% if mostrar_margenes %}
+                <th class="text-right">MARGEN($)</th>
+                {% endif %}
+                {% if not moneda_publico or moneda_publico in ['bs', 'ambas'] or mostrar_margenes %}<th class="text-right">PRECIO(Bs)</th>{% endif %}
+                {% if not moneda_publico or moneda_publico in ['usdt', 'ambas'] or mostrar_margenes %}<th class="text-right">PRECIO(USDT)</th>{% endif %}
+                {% if not moneda_publico or moneda_publico in ['euro', 'ambas'] or mostrar_margenes %}<th class="text-right">PRECIO(Euro)</th>{% endif %}
+                {% if mostrar_margenes %}
+                <th class="text-right">MG. BCV</th>
+                <th class="text-right">MG. USDT</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% set ns = namespace(last_cat=none) %}
+            {% for producto in productos %}
+            {% set cat_name = producto.categoria.nombre if producto.categoria else 'SIN CATEGORÍA' %}
+            {% if cat_name != ns.last_cat %}
+            <tr>
+                <td colspan="{{ col_count }}" style="background-color: #e2e8f0; font-weight: bold; text-align: center; font-size: 8pt; padding: 4px; border-bottom: 2px solid #cbd5e1; color: #0f172a;">
+                    {{ cat_name|upper }}
+                </td>
+            </tr>
+            {% set ns.last_cat = cat_name %}
+            {% endif %}
+            <tr>
+                <td>{{ producto.descripcion.replace('CÓDIGO: ', '') }}</td>
+                <td>
+                    <strong>{{ producto.nombre }}</strong>
+                    {% for val in producto.valores %}
+                        <span class="badge">[{{ val.atributo.nombre }}: {{ val.valor }}]</span>
+                    {% endfor %}
+                </td>
+                {% if mostrar_cantidad %}
+                <td class="text-center">{{ producto.cantidad }}</td>
+                {% endif %}
+                {% if mostrar_margenes %}
+                <td class="text-right">${{ "%.2f"|format(producto.costo or 0) }}</td>
+                {% endif %}
+                {% if not moneda_publico or moneda_publico in ['usd', 'ambas'] or mostrar_margenes %}<td class="text-right">${{ "%.2f"|format(producto.precio) }}</td>{% endif %}
+                {% if mostrar_margenes %}
+                <td class="text-right">${{ "%.2f"|format(producto.precio - (producto.costo or 0)) }}</td>
+                {% endif %}
+                {% if not moneda_publico or moneda_publico in ['bs', 'ambas'] or mostrar_margenes %}
+                <td class="text-right">
+                    {% if tasa_bcv %}
+                        Bs {{ "%.2f"|format(producto.precio * tasa_bcv.tasa) }}
+                    {% else %}
+                        ---
+                    {% endif %}
+                </td>
+                {% endif %}
+                {% if not moneda_publico or moneda_publico in ['usdt', 'ambas'] or mostrar_margenes %}
+                <td class="text-right">
+                    {% if tasa_usdt and tasa_usdt.tasa > 0 and tasa_bcv %}
+                        USDT {{ "%.2f"|format((producto.precio * tasa_bcv.tasa) / tasa_usdt.tasa) }}
+                    {% else %}
+                        ---
+                    {% endif %}
+                </td>
+                {% endif %}
+                {% if not moneda_publico or moneda_publico in ['euro', 'ambas'] or mostrar_margenes %}
+                <td class="text-right">
+                    {% if tasa_euro and tasa_euro.tasa > 0 and tasa_bcv %}
+                        € {{ "%.2f"|format((producto.precio * tasa_bcv.tasa) / tasa_euro.tasa) }}
+                    {% else %}
+                        ---
+                    {% endif %}
+                </td>
+                {% endif %}
+                {% if mostrar_margenes %}
+                <td class="text-right">
+                    {% if tasa_bcv %}
+                        Bs {{ "%.2f"|format((producto.precio - (producto.costo or 0)) * tasa_bcv.tasa) }}
+                    {% else %}
+                        ---
+                    {% endif %}
+                </td>
+                <td class="text-right">
+                    {% if tasa_usdt %}
+                        Bs {{ "%.2f"|format((producto.precio - (producto.costo or 0)) * tasa_usdt.tasa) }}
+                    {% else %}
+                        ---
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
+
+
+
+

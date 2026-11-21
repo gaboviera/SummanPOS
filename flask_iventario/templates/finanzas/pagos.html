@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12 d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-5 fw-bold text-primary m-0">
+            <i class="bi bi-cash-stack"></i> Historial de Pagos
+        </h1>
+    </div>
+
+    <!-- Filtros y Pestañas -->
+    <div class="col-12 mb-4">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-bottom pt-3 pb-0">
+                <ul class="nav nav-tabs border-0" id="pagosTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link fw-bold fs-5 {{ 'active text-primary border-primary border-bottom-2' if tipo_pago == 'recibidos' else 'text-muted' }}" 
+                           href="{{ url_for('finanzas.historial_pagos', tipo='recibidos', q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, metodo_pago=metodo_pago) }}" style="border-radius: 0;">
+                            <i class="bi bi-box-arrow-in-down-right"></i> Pagos Recibidos (CxC)
+                        </a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link fw-bold fs-5 {{ 'active text-danger border-danger border-bottom-2' if tipo_pago == 'emitidos' else 'text-muted' }}" 
+                           href="{{ url_for('finanzas.historial_pagos', tipo='emitidos', q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, metodo_pago=metodo_pago) }}" style="border-radius: 0;">
+                            <i class="bi bi-box-arrow-up-right"></i> Pagos Emitidos (CxP)
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body bg-light p-4">
+                <form method="GET" action="{{ url_for('finanzas.historial_pagos') }}" class="row g-3">
+                    <input type="hidden" name="tipo" value="{{ tipo_pago }}">
+                    <div class="col-md-6">
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" name="q" class="form-control border-start-0 ps-0" placeholder="Buscar por documento, referencia..." value="{{ q }}">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="metodo_pago" class="form-select form-select-lg">
+                            <option value="">Todos los métodos</option>
+                            <option value="Efectivo" {% if metodo_pago == 'Efectivo' %}selected{% endif %}>Efectivo</option>
+                            <option value="Transferencia" {% if metodo_pago == 'Transferencia' %}selected{% endif %}>Transferencia</option>
+                            <option value="Pago Móvil" {% if metodo_pago == 'Pago Móvil' %}selected{% endif %}>Pago Móvil</option>
+                            <option value="USDT" {% if metodo_pago == 'USDT' %}selected{% endif %}>Binance USDT</option>
+                            <option value="Zelle" {% if metodo_pago == 'Zelle' %}selected{% endif %}>Zelle</option>
+                            <option value="Punto" {% if metodo_pago == 'Punto' %}selected{% endif %}>Punto de Venta</option>
+                            <option value="Euro" {% if metodo_pago == 'Euro' %}selected{% endif %}>Euro</option>
+                            <option value="Otro" {% if metodo_pago == 'Otro' %}selected{% endif %}>Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="input-group input-group-lg">
+                            <input type="date" class="form-control" name="fecha_inicio" value="{{ fecha_inicio }}" title="Fecha de inicio">
+                            <span class="input-group-text px-2 border-0 bg-transparent">a</span>
+                            <input type="date" class="form-control" name="fecha_fin" value="{{ fecha_fin }}" title="Fecha de fin">
+                            <button class="btn btn-primary px-3 fw-bold ms-2 rounded" type="submit"><i class="bi bi-search"></i></button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-dark">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>{{ 'Cliente' if tipo_pago == 'recibidos' else 'Orden' }}</th>
+                            <th>Monto</th>
+                            <th>Método de Pago</th>
+                            <th>Referencia</th>
+                            <th>Documento</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white">
+                        {% for pago in pagos.items %}
+                        <tr>
+                            <td>
+                                <div><i class="bi bi-calendar-event text-muted me-1"></i> {{ pago.fecha.strftime('%d/%m/%Y %H:%M') if pago.fecha else 'N/A' }}</div>
+                            </td>
+                            <td>
+                                {% if tipo_pago == 'recibidos' %}
+                                    <div class="fw-bold text-dark">{{ pago.guia.cliente_nombre or 'Cliente Genérico' }}</div>
+                                    <small class="text-muted">{{ pago.guia.cliente_identificacion or '' }}</small>
+                                {% else %}
+                                    <div class="fw-bold text-dark">Orden #{{ pago.orden.id if pago.orden else 'N/A' }}</div>
+                                    <small class="text-muted">Prov: {{ pago.orden.proveedor.nombre if pago.orden and pago.orden.proveedor else 'N/A' }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <h5 class="{{ 'text-success' if tipo_pago == 'recibidos' else 'text-danger' }} fw-bold m-0">
+                                    {{ '+' if tipo_pago == 'recibidos' else '-' }}${{ "{:,.2f}".format(pago.monto) }}
+                                </h5>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary fs-6">{{ pago.metodo }}</span>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ pago.referencia_pago or 'N/A' }}</span>
+                            </td>
+                            <td>
+                                {% if tipo_pago == 'recibidos' %}
+                                    <a href="/ventas/recibo/{{ pago.guia.referencia if pago.guia else '' }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                        <i class="bi bi-file-earmark-text"></i> {{ pago.guia.referencia if pago.guia else '' }}
+                                    </a>
+                                {% else %}
+                                    <a href="/compras/recibo/{{ pago.orden.referencia if pago.orden else '' }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                        <i class="bi bi-file-earmark-text"></i> {{ pago.orden.referencia if pago.orden else '' }}
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                                No se encontraron pagos registrados en esta categoría.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginación -->
+            <div class="card-footer bg-white border-top py-3 d-flex justify-content-center">
+                {% if pagos.pages > 1 %}
+                <nav aria-label="Navegación de páginas">
+                    <ul class="pagination pagination-sm m-0">
+                        {% for p in pagos.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+                            {% if p %}
+                                {% if p == pagos.page %}
+                                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                {% else %}
+                                    <li class="page-item"><a class="page-link" href="{{ url_for('finanzas.historial_pagos', page=p, tipo=tipo_pago, q=q) }}">{{ p }}</a></li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

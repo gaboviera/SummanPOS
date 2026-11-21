@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario Repuestos Luisauris</title>
+    {% if brand_favicon_url %}
+    <link rel="icon" href="{{ brand_favicon_url }}" type="image/x-icon">
+    {% endif %}
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- TomSelect CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <style>
+        :root {
+            /* Summantech Primary Palette */
+            --st-purple-50: #F4F0FA;
+            --st-purple-500: #8A59C4;
+            --st-purple-700: #4B2C7F;
+            /* MAIN */
+            --st-purple-900: #261640;
+
+            /* Summantech Functional (Neutral) */
+            --st-neutral-50: #F5F5F5;
+            --st-neutral-100: #E0E0E0;
+            --st-neutral-500: #757575;
+            --st-neutral-700: #4A4A4A;
+            /* MAIN TEXT */
+            --st-neutral-900: #292929;
+
+            /* Summantech Secondary */
+            --st-ocean-400: #0097A9;
+            /* MAIN OCEAN */
+            --st-sunrise-300: #ED8A00;
+            /* MAIN SUNRISE */
+            --st-berry-700: #86207C;
+            /* MAIN BERRY */
+
+            /* Sobreescribir variables Bootstrap */
+            --bs-primary: var(--st-purple-700);
+            --bs-primary-rgb: 75, 44, 127;
+            --bs-secondary: var(--st-ocean-400);
+            --bs-info: var(--st-ocean-400);
+            --bs-warning: var(--st-sunrise-300);
+            --bs-danger: var(--st-berry-700);
+            --bs-dark: var(--st-purple-900);
+            --bs-light: var(--st-purple-50);
+            --bs-body-bg: var(--st-neutral-50);
+            --bs-body-color: var(--st-neutral-700);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--st-neutral-50);
+            color: var(--st-neutral-700);
+        }
+
+        /* Navbar custom styles */
+        .navbar-custom {
+            background-color: var(--st-purple-900) !important;
+        }
+
+        .navbar-custom .navbar-brand {
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #fff !important;
+        }
+
+        .navbar-custom .nav-link {
+            color: var(--st-purple-50) !important;
+            font-weight: 500;
+        }
+
+        .navbar-custom .nav-link:hover {
+            color: var(--st-ocean-400) !important;
+        }
+
+        /* Dropdowns */
+        .dropdown-menu {
+            background-color: #fff;
+            border-color: var(--st-neutral-100);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .dropdown-item {
+            color: var(--st-neutral-700);
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--st-purple-50);
+            color: var(--st-purple-700);
+        }
+
+        .dropdown-divider {
+            border-top-color: var(--st-neutral-100);
+        }
+
+        /* Tables (Sobreescribir estilos dark viejos) */
+        .table-dark {
+            --bs-table-bg: var(--st-purple-900);
+            --bs-table-color: #fff;
+        }
+
+        /* Buttons overriding */
+        .btn-primary {
+            background-color: var(--st-purple-700);
+            border-color: var(--st-purple-700);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--st-purple-500);
+            border-color: var(--st-purple-500);
+        }
+
+        .btn-outline-warning {
+            color: var(--st-sunrise-300);
+            border-color: var(--st-sunrise-300);
+        }
+
+        .btn-outline-warning:hover {
+            background-color: var(--st-sunrise-300);
+            color: #fff;
+        }
+
+        /* Cards */
+        .card {
+            background-color: #fff;
+            border-color: var(--st-neutral-100);
+        }
+
+        .card-header.bg-dark {
+            background-color: var(--st-purple-700) !important;
+        }
+
+        /* Badges */
+        .bg-primary {
+            background-color: var(--st-purple-700) !important;
+        }
+
+        .bg-info {
+            background-color: var(--st-ocean-400) !important;
+        }
+
+        .bg-warning {
+            background-color: var(--st-sunrise-300) !important;
+            color: #fff !important;
+        }
+
+        .text-warning {
+            color: var(--st-sunrise-300) !important;
+        }
+
+        .text-info {
+            color: var(--st-ocean-400) !important;
+        }
+
+        .text-danger {
+            color: var(--st-berry-700) !important;
+        }
+
+        .container-main {
+            margin-top: 40px;
+        }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+
+<body>
+    <!-- Menú de Navegación -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('inventario.dashboard') }}">
+                {% if brand_logo_url %}
+                <img src="{{ brand_logo_url }}" alt="Logo" height="30" class="d-inline-block align-text-top me-2">
+                {% else %}
+                <i class="bi bi-box-fill me-2"></i> Repuestos Luisauris
+                {% endif %}
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% if current_user.is_authenticated and current_user.rol.nombre in ['Super Admin', 'Administrador', 'Supervisor'] %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-info" href="#" id="navbarDropdownCompras"
+                            role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-truck"></i> Compras
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdownCompras">
+                            <li><a class="dropdown-item" href="/compras/"><i class="bi bi-card-list"></i>
+                                    Órdenes de Compra</a></li>
+                            <li><a class="dropdown-item fw-bold text-info" href="/compras/crear"><i
+                                        class="bi bi-plus-circle"></i> Nueva Orden</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-warning" href="#" id="navbarDropdownVentas"
+                            role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-cart-fill"></i> Ventas
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdownVentas">
+                            <li><a class="dropdown-item fw-bold" style="color: var(--st-sunrise-300);" href="/ventas"><i
+                                        class="bi bi-shop"></i> Punto de Venta</a></li>
+                            <li><a class="dropdown-item" href="/ventas/historial"><i class="bi bi-receipt"></i>
+                                    Historial de Ventas</a></li>
+                        </ul>
+                    </li>
+
+                    {% if modulo_dropshipping_activo and current_user.is_authenticated and current_user.rol.nombre in ['Super Admin', 'Administrador', 'Supervisor'] %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" style="color: var(--st-berry-700);" href="#" id="navbarDropdownDropshipping"
+                            role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-airplane-engines"></i> Dropshipping
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdownDropshipping">
+                            <li><a class="dropdown-item" href="/dropshipping"><i class="bi bi-card-list"></i>
+                                    Lista de Órdenes</a></li>
+                            <li><a class="dropdown-item fw-bold" style="color: var(--st-berry-700);" href="/dropshipping/crear"><i
+                                        class="bi bi-plus-circle"></i> Nueva Orden</a></li>
+                            <li><a class="dropdown-item" href="/dropshipping/productos"><i class="bi bi-box-seam"></i> Historial de Productos</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    {% if current_user.is_authenticated and current_user.rol.nombre in ['Super Admin', 'Administrador', 'Supervisor'] %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-success fw-bold" href="#" id="navbarDropdownFinanzas" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-wallet2"></i> Finanzas
+                        </a>
+                        <ul class="dropdown-menu shadow" aria-labelledby="navbarDropdownFinanzas">
+                            <li><a class="dropdown-item fw-bold text-success" href="/finanzas/cxc"><i class="bi bi-person-check-fill"></i> Cuentas por Cobrar (Clientes)</a></li>
+                            <li><a class="dropdown-item fw-bold text-danger" href="/finanzas/cxp"><i class="bi bi-journal-arrow-up"></i> Cuentas por Pagar (Proveedores)</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item fw-bold text-primary" href="/finanzas/pagos"><i class="bi bi-cash-stack"></i> Historial de Pagos</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    {% if current_user.is_authenticated and current_user.rol.nombre in ['Super Admin', 'Administrador', 'Supervisor'] %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownInventario" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-box-seam"></i> Inventario
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdownInventario">
+                            <li><a class="dropdown-item" href="/productos"><i class="bi bi-box"></i> Productos</a></li>
+                              <li><a class="dropdown-item fw-bold text-success" href="/productos/lista-precios"><i class="bi bi-tag-fill"></i> Lista de Precios</a></li>
+                            <li><a class="dropdown-item" href="/transacciones"><i class="bi bi-clock-history"></i>
+                                    Movimientos</a></li>
+                            <li><a class="dropdown-item" href="/importar"><i class="bi bi-upload"></i> Carga Masiva</a>
+                            </li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    {% if current_user.is_authenticated and current_user.rol.nombre in ['Super Admin', 'Administrador', 'Supervisor'] %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownConfig" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-gear-fill"></i> Configuración
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdownConfig">
+                            <li><a class="dropdown-item" href="/contactos"><i class="bi bi-people-fill"></i>
+                                    Contactos</a></li>
+                            <li><a class="dropdown-item" href="/bcv/historial"><i class="bi bi-graph-up-arrow"></i>
+                                    Historial de Tasas</a></li>
+                            <li><a class="dropdown-item" href="/categorias"><i class="bi bi-folder-fill"></i>
+                                    Categorías</a></li>
+                            <li><a class="dropdown-item" href="/atributos"><i class="bi bi-tags-fill"></i> Atributos</a>
+                            </li>
+                            {% if current_user.rol.nombre in ['Super Admin', 'Administrador'] %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li><a class="dropdown-item text-primary" href="/configuracion/marca"><i
+                                        class="bi bi-palette-fill"></i> Identidad Corporativa</a></li>
+                            <li><a class="dropdown-item text-success" href="/configuracion/listas-precios"><i
+                                        class="bi bi-tags"></i> Listas de Precios</a></li>
+                            {% if current_user.rol.nombre == 'Super Admin' %}
+                            <li><a class="dropdown-item text-warning fw-bold" href="/configuracion/modulos"><i
+                                        class="bi bi-sliders"></i> Módulos y Funciones</a></li>
+                            {% endif %}
+                            <li><a class="dropdown-item text-info" href="/usuarios"><i
+                                        class="bi bi-shield-lock-fill"></i> Usuarios</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Campana de Notificaciones -->
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item dropdown ms-2 me-3">
+                        <a class="nav-link position-relative" href="#" id="notificacionesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="marcarNotificacionesLeidas()">
+                            <i class="bi bi-bell-fill fs-5"></i>
+                            {% if notificaciones_no_leidas|length > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notif-badge">
+                                {{ notificaciones_no_leidas|length }}
+                            </span>
+                            {% endif %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="notificacionesDropdown" style="width: 300px; max-height: 400px; overflow-y: auto;">
+                            <li><h6 class="dropdown-header">Notificaciones</h6></li>
+                            {% if notificaciones_no_leidas|length == 0 %}
+                                <li><span class="dropdown-item text-muted text-wrap">No tienes notificaciones nuevas</span></li>
+                            {% else %}
+                                {% for notif in notificaciones_no_leidas %}
+                                <li>
+                                    <div class="dropdown-item text-wrap border-bottom pb-2">
+                                        <small class="text-muted d-block">{{ notif.fecha.strftime('%d-%m-%Y %H:%M') }}</small>
+                                        <span class="text-{{ notif.tipo }}">{{ notif.mensaje | safe }}</span>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-center text-primary" href="/notificaciones">Ver todas las notificaciones</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item ms-3 d-flex align-items-center">
+                        <span class="badge bg-primary fs-6 me-2"><i class="bi bi-person-circle"></i> {{
+                            current_user.username }}</span>
+                    </li>
+                    <li class="nav-item"><a class="nav-link text-danger" href="/logout"><i
+                                class="bi bi-box-arrow-right"></i> Salir</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Espacio dinámico para cada página -->
+    <div class="container-fluid container-main px-4">
+        {% block content %}
+        <!-- Aquí se inyectará el contenido de las otras páginas -->
+        {% endblock %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Script para ocultar automáticamente los mensajes de notificación (Flash) -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            setTimeout(function() {
+                // Buscar todas las alertas que no tengan la clase 'alert-permanent' (por si acaso alguna debe quedarse)
+                var alertas = document.querySelectorAll('.alert:not(.alert-permanent)');
+                alertas.forEach(function(alerta) {
+                    // Usar la API de Bootstrap para cerrar la alerta con animación
+                    var bsAlert = new bootstrap.Alert(alerta);
+                    bsAlert.close();
+                });
+            }, 5000); // 5000 milisegundos = 5 segundos
+        });
+
+        // Inicializador Global de TomSelect
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelectorAll('.tom-select').forEach((el) => {
+                new TomSelect(el, {
+                    create: false,
+                    sortField: {
+                        field: "text",
+                        direction: "asc"
+                    }
+                });
+            });
+        });
+
+        // Marcar notificaciones leídas
+        function marcarNotificacionesLeidas() {
+            const badge = document.getElementById('notif-badge');
+            if (badge) {
+                fetch('/api/notificaciones/marcar_leidas', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }).then(response => response.json())
+                  .then(data => {
+                      if(data.success) {
+                          badge.style.display = 'none'; // Ocultar campanita roja
+                      }
+                  });
+            }
+        }
+        
+        // Polling para notificaciones nuevas (cada 15 segundos)
+        {% if current_user.is_authenticated %}
+        setInterval(function() {
+            fetch('/api/notificaciones/nuevas')
+                .then(response => response.json())
+                .then(data => {
+                    if(data.success && data.notificaciones.length > 0) {
+                        // Actualizar UI
+                        let badge = document.getElementById('notif-badge');
+                        const link = document.getElementById('notificacionesDropdown');
+                        if (!badge) {
+                            badge = document.createElement('span');
+                            badge.id = 'notif-badge';
+                            badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
+                            link.appendChild(badge);
+                        }
+                        badge.style.display = 'inline-block';
+                        badge.innerHTML = data.notificaciones.length;
+                        
+                        // Actualizar lista
+                        const ul = link.nextElementSibling;
+                        let html = '<li><h6 class="dropdown-header">Notificaciones</h6></li>';
+                        data.notificaciones.forEach(n => {
+                            html += `
+                            <li>
+                                <div class="dropdown-item text-wrap border-bottom pb-2">
+                                    <small class="text-muted d-block">${n.fecha}</small>
+                                    <span class="text-${n.tipo}">${n.mensaje}</span>
+                                </div>
+                            </li>`;
+                        });
+                        html += `<li><hr class="dropdown-divider"></li>
+                                 <li><a class="dropdown-item text-center text-primary" href="/notificaciones">Ver todas las notificaciones</a></li>`;
+                        ul.innerHTML = html;
+                    }
+                });
+        }, 15000);
+        {% endif %}
+    </script>
+    
+    <!-- TomSelect JS -->
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    {% block scripts %}{% endblock %}
+
+</body>
+
+</html>

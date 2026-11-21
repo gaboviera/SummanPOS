@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    #image: gabrielviera2000/flask-inventario:latest
+    container_name: inventario_app
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+      - DB_USER=${DB_USER:-inventario_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-inventario_db}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - inventario_uploads:/app/static/uploads
+  db:
+    image: postgres:17-alpine
+    container_name: inventario_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-inventario_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-inventario_db}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventario_user -d inventario_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  inventario_uploads:

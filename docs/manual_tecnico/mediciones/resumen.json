@@ -1,0 +1,42 @@
+{
+ "fecha": "11/11/2026",
+ "host": "Windows 11, 12 CPU lógicas, 9,5 GB asignados a Docker",
+ "respuesta_ms": "300-550",
+ "bd_tamano": "9 MB",
+ "imagen": "680 MB",
+ "tabla": [
+  [
+   "Reposo (3 workers listos)",
+   "0,07 %",
+   "329 MB",
+   "37 MB",
+   "39",
+   "~140 MB por worker + 31 MB el master"
+  ],
+  [
+   "3 reportes PDF a la vez (3000 productos)",
+   "100-120 %",
+   "hasta 1.380 MB",
+   "48 MB",
+   "45",
+   "Un núcleo saturado ~2 min; PostgreSQL apenas 9 % CPU"
+  ],
+  [
+   "Después de la carga",
+   "0,07 %",
+   "1.322 MB",
+   "48 MB",
+   "42",
+   "El worker que generó los PDF retiene 1,15 GB (Python no devuelve la memoria)"
+  ],
+  [
+   "Listado /productos paginado",
+   "breve",
+   "sin cambio",
+   "sin cambio",
+   "—",
+   "Respuesta en 768 ms con 3000 productos"
+  ]
+ ],
+ "docker_top": "PID    PPID   HILOS  %CPU   RSS(MB)  PROCESO\n2056   2031   1      0.4         31  gunicorn master\n2087   2056   13     52.4      1152  gunicorn worker\n2088   2056   14     1.8        143  gunicorn worker\n2089   2056   14     1.6        146  gunicorn worker"
+}

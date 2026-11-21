@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Códigos de Barras</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #fff;
+        }
+        .barcode-container {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+            border: 1px dashed #ccc;
+            text-align: center;
+        }
+        .product-name {
+            font-size: 12px;
+            margin-bottom: 5px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        @media print {
+            body { padding: 0; }
+            .no-print { display: none; }
+            .barcode-container { border: none; margin: 15px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 20px;">
+        <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">
+            🖨️ Imprimir Etiquetas
+        </button>
+        <p>Asegúrate de ajustar los márgenes y el tamaño de papel en las opciones de impresión.</p>
+    </div>
+
+    <div id="barcodes-grid">
+        {% for p in productos %}
+        <div class="barcode-container">
+            <div class="product-name" title="{{ p.nombre }}">{{ p.nombre }}</div>
+            <svg class="barcode"
+                jsbarcode-format="CODE128"
+                jsbarcode-value="{{ p.descripcion.replace('CÓDIGO: ', '') if p.descripcion else p.id }}"
+                jsbarcode-textmargin="0"
+                jsbarcode-fontoptions="bold">
+            </svg>
+            <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">
+                ${{ "%.2f"|format(p.precio) }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            JsBarcode(".barcode").init();
+            
+            // Auto abrir el diálogo de impresión al cargar
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

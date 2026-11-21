@@ -1,0 +1,115 @@
+{# ============================================================
+   Pie del recibo: firmas + totales. Compartido por recibo.html y
+   recibo_encabezado.html. El paginador lo clona en TODAS las páginas.
+
+   Variable esperada del contexto:
+     mostrar_total_grande  (bool) — añade la línea "TOTAL: x" en grande,
+                                    útil sólo cuando la hoja no lleva
+                                    impresos los datos del cliente.
+   ============================================================ #}
+<div id="plantillaPie" class="bloque-pie">
+    <div class="footer-section">
+        <div style="width: 40%;">
+            <div style="display: flex; align-items: flex-end; margin-bottom: 25px;">
+                <strong style="margin-right: 10px; white-space: nowrap;">Despachado por:</strong>
+                <div style="flex-grow: 1; border-bottom: 1px solid #000;"></div>
+            </div>
+            <div style="display: flex; align-items: flex-end; margin-bottom: 25px;">
+                <strong style="margin-right: 10px; white-space: nowrap;">Recibido por:</strong>
+                <div style="flex-grow: 1; border-bottom: 1px solid #000;"></div>
+            </div>
+            <div style="font-weight: bold;">Gracias por su confianza</div>
+        </div>
+
+        <div style="width: 30%;">
+            <div style="display: flex; align-items: flex-end; margin-bottom: 25px;">
+                <strong style="margin-right: 10px; white-space: nowrap;">Fecha de entrega:</strong>
+                <div style="flex-grow: 1; border-bottom: 1px solid #000;"></div>
+            </div>
+            <div style="display: flex; align-items: flex-end; margin-bottom: 25px;">
+                <strong style="margin-right: 10px; white-space: nowrap;">Observaciones:</strong>
+                <div style="flex-grow: 1; border-bottom: 1px solid #000;"></div>
+            </div>
+        </div>
+
+        <div class="footer-totals">
+            {% if es_ajuste %}
+                <div>
+                    <strong>Tipo:</strong>
+                    <span>Ajuste Manual</span>
+                </div>
+                <div>
+                    <strong>Productos:</strong>
+                    <span>{{ transacciones|length }}</span>
+                </div>
+            {% else %}
+                {% set total_factura = guia.total|float %}
+
+                {# ------------------------------------------------------------
+                   Desglose de impuestos.
+
+                   guia.total se guarda YA con impuestos, tal y como lo calcula
+                   ventas.html al cerrar la venta:
+
+                       base    = suma de los renglones - descuento global
+                       IGTF 3% = base * 0.03      (sobre la base)
+                       IVA 16% = base * 0.16      (sobre la base, NO sobre la
+                                                   base + IGTF: no se cobra
+                                                   impuesto sobre impuesto)
+                       total   = base * 1.19
+
+                   Aquí se revierte con ESE MISMO divisor. Antes se dividía
+                   entre 1.1948 y el IVA se sacaba del Sub-Total, dos fórmulas
+                   que no eran la del carrito: la Base Imponible salía por
+                   debajo de la suma real de la columna "Precio Total" y el IVA
+                   por encima. El total cobrado siempre fue el correcto; lo que
+                   estaba mal era el desglose impreso.
+                   ------------------------------------------------------------ #}
+                {% set base_imponible = total_factura / 1.19 %}
+                {% set igtf = base_imponible * 0.03 %}
+                {% set iva = base_imponible * 0.16 %}
+                {% set subtotal = base_imponible + igtf %}
+
+                {# El descuento global se aplicó sobre la base, así que el monto
+                   bruto también va en base (sin impuestos). #}
+                {% if guia.descuento_global and guia.descuento_global|float > 0 %}
+                    <div>
+                        <span>Monto Bruto</span>
+                        <span class="val-monto-bruto">{{ "{:,.2f}".format(base_imponible + guia.descuento_global|float).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
+                    </div>
+                    <div>
+                        <span>Desc. Global</span>
+                        <span class="val-descuento">-{{ "{:,.2f}".format(guia.descuento_global|float).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
+                    </div>
+                {% endif %}
+
+                <div>
+                    <span>Base Imponible</span>
+                    <span class="val-base-imponible">{{ "{:,.2f}".format(base_imponible).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
+                </div>
+                <div>
+                    <span>IGTF 3%</span>
+                    <span class="val-igtf">{{ "{:,.2f}".format(igtf).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
+                </div>
+                <div>
+                    <span>Sub-Total</span>
+                    <span class="val-subtotal">{{ "{:,.2f}".format(subtotal).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
+                </div>
+                <div>
+                    <span>IVA (16%)</span>
+                    <span class="val-iva">{{ "{:,.2f}".format(iva).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
+                </div>
+                <div class="footer-total-row">
+                    <span>TOTAL</span>
+                    <span class="val-total">{{ "{:,.2f}".format(total_factura).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if mostrar_total_grande and not es_ajuste %}
+    <div class="total-sin-encabezado">
+        TOTAL: <span class="val-total-grande">{{ "{:,.2f}".format(guia.total|float).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
+    </div>
+    {% endif %}
+</div>

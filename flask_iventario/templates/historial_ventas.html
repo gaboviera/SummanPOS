@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12">
+        <h1 class="display-5 fw-bold text-primary mb-4 text-center">
+            <i class="bi bi-receipt"></i> Historial de Ventas
+        </h1>
+
+        <!-- Totalizadores -->
+        {% if total_usd is not none and total_bs is not none %}
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 bg-primary text-white h-100">
+                    <div class="card-body p-4 text-center">
+                        <h5 class="fw-normal mb-1">Total Periodo (USD)</h5>
+                        <h2 class="display-6 fw-bold mb-0">${{ "%.2f"|format(total_usd) }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 bg-info text-white h-100">
+                    <div class="card-body p-4 text-center">
+                        <h5 class="fw-normal mb-1">Total Periodo (Bs)</h5>
+                        <h2 class="display-6 fw-bold mb-0">Bs. {{ "%.2f"|format(total_bs) }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tarjeta de Filtros -->
+        <div class="card border-0 shadow mt-3 rounded-4 overflow-hidden mb-4">
+            <div class="card-body bg-light">
+                <form method="GET" action="{{ url_for('ventas.historial_ventas') }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label text-dark fw-bold">Buscar (Ref o Cliente)</label>
+                            <input type="text" name="q" class="form-control" placeholder="Ej. VTA-..." value="{{ q }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label text-dark fw-bold">Fecha Inicio</label>
+                            <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label text-dark fw-bold">Fecha Fin</label>
+                            <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-dark fw-bold">Estado</label>
+                            <select name="estado" class="form-select">
+                                <option value="">Todos los Estados</option>
+                                <option value="Completada" {% if estado == 'Completada' %}selected{% endif %}>Completada</option>
+                                <option value="Anulada" {% if estado == 'Anulada' %}selected{% endif %}>Anulada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="d-flex w-100">
+                                <button type="submit" class="btn btn-primary flex-grow-1 me-2" title="Filtrar Resultados"><i class="bi bi-funnel"></i></button>
+                                <button type="submit" name="exportar" value="excel" class="btn btn-success me-2" title="Exportar a Excel"><i class="bi bi-file-earmark-excel"></i></button>
+                                <button type="submit" name="exportar" value="pdf" class="btn btn-danger" title="Exportar a PDF"><i class="bi bi-file-earmark-pdf"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center pt-3">
+                <h4 class="text-primary m-0"><i class="bi bi-card-list"></i> Resultados de Ventas</h4>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0 bg-white">
+                    <thead class="bg-light text-dark border-bottom">
+                        <tr>
+                            <th>Nº Ticket</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Vendedor</th>
+                            <th class="text-end">Total ($)</th>
+                            <th class="text-center">Estado / Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if guias.items %}
+                        {% for g in guias.items %}
+                        <tr>
+                            <td class="text-dark fw-bold">
+                                {{ g.referencia }}<br>
+                                <a href="/ventas/recibo/{{ g.referencia }}" class="btn btn-sm btn-outline-secondary mt-1" title="Reimprimir Guía" target="_blank">
+                                    <i class="bi bi-printer"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-info mt-1" title="Ver Detalles" onclick="verDetallesVenta('{{ g.referencia }}')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
+                            <td>{{ g.fecha_local.strftime('%Y-%m-%d %H:%M') if g.fecha_local else 'N/A' }}</td>
+                            <td>
+                                {% if g.cliente_nombre %}
+                                    <span class="text-dark">{{ g.cliente_nombre }}</span><br>
+                                    <small class="text-muted">{{ g.cliente_identificacion }}</small>
+                                {% else %}
+                                    <span class="text-muted">Venta de Mostrador</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ g.vendedor_nombre if g.vendedor_nombre else 'N/A' }}
+                            </td>
+                            <td class="text-end">
+                                <div class="fw-bold text-success">${{ "%.2f"|format(g.total) if g.total else '0.00' }}</div>
+                                
+                                <!-- Tasas del Día -->
+                                {% if g.tasa_bcv %}
+                                <small class="text-muted d-block mt-1" style="font-size: 0.7rem;" title="Tasa BCV Dólar al momento de la venta">BCV: Bs. {{ "%.2f"|format(g.tasa_bcv) }}</small>
+                                {% endif %}
+                                {% if g.tasa_euro %}
+                                <small class="text-muted d-block" style="font-size: 0.7rem;" title="Tasa Euro BCV al momento de la venta">EUR: Bs. {{ "%.2f"|format(g.tasa_euro) }}</small>
+                                {% endif %}
+                                {% if g.tasa_usdt %}
+                                <small class="text-muted d-block" style="font-size: 0.7rem;" title="Tasa USDT al momento de la venta">USDT: Bs. {{ "%.2f"|format(g.tasa_usdt) }}</small>
+                                {% endif %}
+                                
+                                <!-- Pagos Exactos (Desglose) -->
+                                {% if g.pagos %}
+                                <div class="mt-2 pt-1 border-top border-secondary">
+                                {% for pago in g.pagos %}
+                                    {% if pago.monto_moneda %}
+                                    <small class="text-dark d-block lh-sm" style="font-size: 0.75rem;">
+                                        ({{ pago.metodo }} | Bs. {{ "{:,.2f}".format(pago.monto_moneda) }} a Tasa: {{ "{:,.2f}".format(pago.tasa_usada) }} {{ pago.moneda_tasa or 'BCV' }})
+                                    </small>
+                                    {% elif pago.tasa_usada %}
+                                    <small class="text-dark d-block lh-sm" style="font-size: 0.75rem;">
+                                        ({{ pago.metodo }} | Bs. {{ "{:,.2f}".format(pago.monto * pago.tasa_usada) }} a Tasa: {{ "{:,.2f}".format(pago.tasa_usada) }} {{ pago.moneda_tasa or 'BCV' }})
+                                    </small>
+                                    {% else %}
+                                    <small class="text-dark d-block lh-sm" style="font-size: 0.75rem;">
+                                        ({{ pago.metodo }} | ${{ "{:,.2f}".format(pago.monto) }})
+                                    </small>
+                                    {% endif %}
+                                {% endfor %}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if g.estado == 'Anulada' %}
+                                    <span class="badge bg-danger rounded-pill mb-1 d-block"><i class="bi bi-x-circle"></i> Anulada</span>
+                                {% else %}
+                                    <span class="badge bg-success rounded-pill mb-1 d-block"><i class="bi bi-check-circle"></i> Completada</span>
+                                    <form action="{{ url_for('ventas.anular_venta', referencia=g.referencia) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro que deseas ANULAR esta venta? El stock será devuelto al inventario y se borrará de los ingresos del día. Esta acción NO se puede deshacer.');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Anular Venta (Devolución)">
+                                            <i class="bi bi-arrow-return-left"></i> Anular
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">
+                                <h4>No hay ventas registradas.</h4>
+                                <p>Tus ventas realizadas aparecerán aquí.</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Paginador -->
+        {% if guias.pages > 1 %}
+        <nav class="mt-4" aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            <li class="page-item {% if not guias.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('ventas.historial_ventas', page=guias.prev_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado=estado) }}">Anterior</a>
+            </li>
+            
+            {% for page_num in guias.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if page_num %}
+                <li class="page-item {% if guias.page == page_num %}active{% endif %}">
+                  <a class="page-link" href="{{ url_for('ventas.historial_ventas', page=page_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado=estado) }}">{{ page_num }}</a>
+                </li>
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+            
+            <li class="page-item {% if not guias.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('ventas.historial_ventas', page=guias.next_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado=estado) }}">Siguiente</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+        
+    </div>
+</div>
+
+<!-- Modal de Detalles de Venta -->
+<div class="modal fade" id="modalDetallesVenta" tabindex="-1" aria-labelledby="modalDetallesVentaLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="modalDetallesVentaLabel"><i class="bi bi-box-seam"></i> Artículos Vendidos</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="loadingDetalles" class="text-center py-3">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2 text-muted">Buscando artículos...</p>
+        </div>
+        <div class="table-responsive" id="tablaDetallesContainer" style="display: none;">
+            <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Producto</th>
+                        <th class="text-center">Cant.</th>
+                    </tr>
+                </thead>
+                <tbody id="bodyDetallesVenta">
+                    <!-- Se llena con JS -->
+                </tbody>
+            </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    let modalDetalles;
+    document.addEventListener("DOMContentLoaded", function() {
+        modalDetalles = new bootstrap.Modal(document.getElementById('modalDetallesVenta'));
+    });
+
+    function verDetallesVenta(referencia) {
+        // Mostrar modal y loading
+        document.getElementById('loadingDetalles').style.display = 'block';
+        document.getElementById('tablaDetallesContainer').style.display = 'none';
+        document.getElementById('bodyDetallesVenta').innerHTML = '';
+        modalDetalles.show();
+
+        // Llamar a la API
+        fetch(`/api/ventas/${referencia}/detalles`)
+            .then(response => response.json())
+            .then(data => {
+                let html = '';
+                if(data.length === 0) {
+                    html = '<tr><td colspan="2" class="text-center text-muted">No se encontraron artículos (posible error de sistema).</td></tr>';
+                } else {
+                    data.forEach(item => {
+                        let badge = item.tipo.includes('Devolución') ? '<span class="badge bg-danger ms-1">Devuelto</span>' : '';
+                        html += `
+                            <tr>
+                                <td>${item.producto} ${badge}</td>
+                                <td class="text-center fw-bold">${item.cantidad}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('bodyDetallesVenta').innerHTML = html;
+                document.getElementById('loadingDetalles').style.display = 'none';
+                document.getElementById('tablaDetallesContainer').style.display = 'block';
+            })
+            .catch(error => {
+                console.error("Error cargando detalles:", error);
+                document.getElementById('loadingDetalles').innerHTML = '<p class="text-danger"><i class="bi bi-exclamation-triangle"></i> Error al cargar los detalles.</p>';
+            });
+    }
+</script>
+
+{% endblock %}

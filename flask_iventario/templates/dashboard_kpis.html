@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-md-11">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-5 fw-bold text-primary mb-0">Resumen Gerencial</h1>
+        <div class="d-flex align-items-center">
+            <!-- Panel BCV Dólar -->
+            <div class="bg-white border rounded-pill px-3 py-2 d-flex align-items-center shadow-sm me-2">
+              <span class="text-secondary me-2" style="font-size: 0.9rem;">
+                <i class="bi bi-bank"></i> Dólar BCV:
+                <strong class="text-primary fs-6 ms-1">{{ tasa_bcv.tasa if tasa_bcv else 'N/A' }} Bs.</strong>
+              </span>
+              <a href="/bcv/actualizar" class="btn btn-sm btn-outline-info rounded-circle p-1 px-2" title="Actualizar Tasas BCV">
+                <i class="bi bi-arrow-clockwise"></i>
+              </a>
+            </div>
+            <!-- Panel Euro BCV -->
+            <div class="bg-white border rounded-pill px-3 py-2 d-flex align-items-center shadow-sm me-2">
+              <span class="text-secondary me-2" style="font-size: 0.9rem;">
+                <i class="bi bi-currency-euro"></i> Euro BCV:
+                <strong class="text-info fs-6 ms-1">{{ "%.2f"|format(tasa_euro.tasa) if tasa_euro else 'N/A' }} Bs.</strong>
+              </span>
+              <a href="/bcv/actualizar_euro" class="btn btn-sm btn-outline-info rounded-circle p-1 px-2" title="Actualizar Tasa Euro (BCV)">
+                <i class="bi bi-arrow-clockwise"></i>
+              </a>
+            </div>
+            <!-- Panel USDT -->
+            <div class="bg-white border rounded-pill px-3 py-2 d-flex align-items-center shadow-sm">
+              <span class="text-secondary me-2" style="font-size: 0.9rem;">
+                <i class="bi bi-currency-bitcoin"></i> Tasa USDT:
+                <strong class="text-dark fs-6 ms-1">{{ tasa_usdt.tasa if tasa_usdt else 'N/A' }} Bs.</strong>
+              </span>
+              <a href="/bcv/actualizar_usdt" class="btn btn-sm btn-outline-warning rounded-circle p-1 px-2 ms-2" title="Actualizar Tasa USDT">
+                <i class="bi bi-arrow-clockwise"></i>
+              </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensajes Flash -->
+    <div class="row mb-3">
+        <div class="col-12 text-start">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+    
+    <!-- TARJETAS DE KPIs -->
+    <div class="row text-start mb-5">
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
+          <div class="card-body bg-white">
+            <h6 class="text-success text-uppercase fw-bold mb-1"><i class="bi bi-cash-coin"></i> Ventas Hoy (USD)</h6>
+            <h3 class="text-dark fw-bold mb-0">${{ "{:,.2f}".format(ventas_hoy_usd) if ventas_hoy_usd else "0.00" }}</h3>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
+          <div class="card-body bg-white">
+            <h6 class="text-info text-uppercase fw-bold mb-1"><i class="bi bi-currency-exchange"></i> Ventas Hoy (BS)</h6>
+            <h3 class="text-dark fw-bold mb-0">Bs. {{ "{:,.2f}".format(ventas_hoy_bs) if ventas_hoy_bs else "0.00" }}</h3>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
+          <div class="card-body bg-white">
+            <h6 class="text-primary text-uppercase fw-bold mb-1"><i class="bi bi-receipt"></i> Órdenes Hoy</h6>
+            <h3 class="text-dark fw-bold mb-0">{{ ordenes_hoy }}</h3>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 rounded-4 overflow-hidden">
+          <div class="card-body bg-white">
+            <h6 class="text-{% if bajo_stock_count > 0 %}warning{% else %}secondary{% endif %} text-uppercase fw-bold mb-1">
+              <i class="bi bi-exclamation-triangle"></i> Bajo Stock (<=5)
+            </h6>
+            <h3 class="text-dark fw-bold mb-0">{{ bajo_stock_count }} Repuestos</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN DE GRÁFICOS Y TABLAS RESUMEN -->
+    <div class="row">
+        <!-- Gráfico -->
+        <div class="col-md-8 mb-4">
+            <div class="card border-0 h-100 shadow rounded-4 overflow-hidden">
+                <div class="card-header border-bottom bg-white pt-3">
+                    <h5 class="text-primary m-0"><i class="bi bi-graph-up"></i> Tendencia de Ventas (Últimos 7 Días)</h5>
+                </div>
+                <div class="card-body bg-white">
+                    <canvas id="ventasChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alertas de Bajo Stock -->
+        <div class="col-md-4 mb-4">
+            <div class="card border-0 h-100 shadow rounded-4 overflow-hidden">
+                <div class="card-header border-bottom bg-white pt-3">
+                    <h5 class="text-warning m-0"><i class="bi bi-exclamation-circle"></i> Prioridad de Reposición</h5>
+                    {% if productos_bajo_stock %}
+                    <div class="mt-2">
+                        <input type="text" id="filtroReposicion" class="form-control form-control-sm bg-light text-dark border" placeholder="Filtrar productos...">
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0 bg-white">
+                    <ul class="list-group list-group-flush" id="listaReposicion" style="max-height: 400px; overflow-y: auto;">
+                        {% if productos_bajo_stock %}
+                            {% for p in productos_bajo_stock %}
+                            <li class="list-group-item bg-white text-dark border-bottom d-flex justify-content-between align-items-center item-reposicion">
+                                <div>
+                                    <small class="text-muted d-block desc-prod">{{ p.descripcion.replace('CÓDIGO: ', '') if p.descripcion else '' }}</small>
+                                    <span class="nombre-prod fw-bold">{{ p.nombre }}</span>
+                                </div>
+                                <span class="badge bg-danger rounded-pill">{{ p.cantidad }} u.</span>
+                            </li>
+                            {% endfor %}
+                            <li class="list-group-item bg-light text-center border-0 pt-3 pb-3" id="btnVerCompleto">
+                                <a href="/productos" class="btn btn-sm btn-outline-primary fw-bold">Ver inventario completo</a>
+                            </li>
+                        {% else %}
+                            <li class="list-group-item bg-white text-muted text-center py-5 border-0">
+                                <i class="bi bi-check-circle display-4 text-success mb-3 d-block"></i>
+                                Todo el inventario está en niveles óptimos.
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Cargar Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const ctx = document.getElementById('ventasChart').getContext('2d');
+        
+        // Datos inyectados desde Flask
+        const labels = {{ fechas_semana | tojson | safe }};
+        const dataVentas = {{ ventas_semana | tojson | safe }};
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Ventas en USD ($)',
+                    data: dataVentas,
+                    borderColor: '#198754', // Color success de Bootstrap
+                    backgroundColor: 'rgba(25, 135, 84, 0.2)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#198754',
+                    pointRadius: 4,
+                    fill: true,
+                    tension: 0.3 // Curvas suaves
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#4A4A4A'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ' $' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#6c757d' },
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    },
+                    y: {
+                        ticks: { 
+                            color: '#6c757d',
+                            callback: function(value) { return '$' + value; }
+                        },
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // Lógica para filtrar la lista de reposición
+        const filtro = document.getElementById('filtroReposicion');
+        if (filtro) {
+            filtro.addEventListener('keyup', function() {
+                const term = this.value.toLowerCase();
+                const items = document.querySelectorAll('.item-reposicion');
+                
+                items.forEach(item => {
+                    const desc = item.querySelector('.desc-prod').innerText.toLowerCase();
+                    const nombre = item.querySelector('.nombre-prod').innerText.toLowerCase();
+                    
+                    if (desc.includes(term) || nombre.includes(term)) {
+                        item.classList.remove('d-none');
+                        item.classList.add('d-flex');
+                    } else {
+                        item.classList.remove('d-flex');
+                        item.classList.add('d-none');
+                    }
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+name: Restore SummanPOS Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_namespace:
+        description: "Ambiente destino (dónde restaurar: prd, dev, uat)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - uat
+          - prd
+      source_namespace:
+        description: "Ambiente origen (de dónde viene el backup: prd, dev, uat)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - uat
+          - prd
+      backup_date:
+        description: "Fecha del backup (YYYY-MM-DD)"
+        required: true
+        type: string
+      host_prefix:
+        description: "Prefijo del host (ej. vmi3203786_)"
+        required: true
+        type: string
+        default: "vmi3203786_"
+      restore_db:
+        description: "Restaurar Base de Datos"
+        required: true
+        type: boolean
+        default: true
+      db_restore_target:
+        description: "Destino de la BD (azure o docker)"
+        required: true
+        type: choice
+        options:
+          - azure
+          - docker
+      restore_volume:
+        description: "Restaurar Volumen de Datos (Docker)"
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  stop_containers:
+    name: Detener SummanPOS
+    runs-on: self-hosted
+    environment: ${{ inputs.target_namespace }}
+    steps:
+      - name: Validar Permisos
+        run: |
+          # Si AUTHORIZED_USERS está vacío, cualquiera puede ejecutar la acción.
+          AUTHORIZED_USERS=""
+          if [ -z "$AUTHORIZED_USERS" ] || [[ " $AUTHORIZED_USERS " =~ " ${{ github.actor }} " ]]; then
+            echo "Usuario ${{ github.actor }} autorizado."
+          else
+            echo "::error::El usuario ${{ github.actor }} no tiene permisos para ejecutar la acción 'restore'."
+            exit 1
+          fi
+        shell: bash
+
+      - name: Stop SummanPOS Containers
+        run: |
+          docker stop inventario_app || true
+          docker stop ${{ inputs.target_namespace }}-summanpos_inventario_app_1 || true
+          docker stop flask_iventario_app_1 || true
+
+  restore:
+    name: Restaurar desde GCS
+    needs: stop_containers
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    uses: SummanTech/infra-templates/.github/workflows/restore-data.yml@main
+    with:
+      target_namespace: ${{ inputs.target_namespace }}
+      source_namespace: ${{ inputs.source_namespace }}
+      backup_date: ${{ inputs.backup_date }}
+      host_prefix: ${{ inputs.host_prefix }}
+      
+      restore_db: ${{ inputs.restore_db }}
+      db_backup_source: "azure_db"
+      db_restore_target: ${{ inputs.db_restore_target }}
+      db_name: "flask_inventario_db"
+      db_docker_container: "${{ inputs.target_namespace }}-postgres_postgres_1"
+      
+      restore_volume: ${{ inputs.restore_volume }}
+      volume_id: "inventario"
+      target_volume_name: "${{ inputs.target_namespace }}-summanpos_inventario_uploads"
+    secrets:
+      GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      GCP_BUCKET_NAME: ${{ vars.GCP_BUCKET_NAME }}
+      AZURE_PG_HOST: ${{ vars.PGHOST }}
+      AZURE_PG_USER: ${{ vars.PGUSER }}
+      AZURE_PG_PASSWORD: ${{ secrets.PGPASSWORD }}
+
+  start_containers:
+    name: Iniciar SummanPOS
+    needs: restore
+    runs-on: self-hosted
+    environment: ${{ inputs.target_namespace }}
+    steps:
+      - name: Start SummanPOS Containers
+        run: |
+          docker start inventario_app || true
+          docker start ${{ inputs.target_namespace }}-summanpos_inventario_app_1 || true
+          docker start flask_iventario_app_1 || true

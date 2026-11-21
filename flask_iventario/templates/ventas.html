@@ -1,0 +1,1481 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12">
+        <h1 class="display-5 fw-bold text-primary mb-4 text-center">
+            <i class="bi bi-cart-check"></i> Punto de Venta / Despacho
+        </h1>
+    </div>
+
+    <!-- Datos del Cliente y Vendedor -->
+    <div class="col-12 mb-4">
+        <div class="card border-0 shadow mt-3 rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-bottom pt-3">
+                <h4 class="text-primary"><i class="bi bi-person-lines-fill"></i> Datos del Despacho</h4>
+            </div>
+            <div class="card-body">
+                <form id="formCliente">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label text-primary fw-bold"><i class="bi bi-search"></i> Buscar Contacto Guardado</label>
+                            <select id="buscadorContacto" class="form-select tom-select" placeholder="Escribe el nombre o RIF del cliente...">
+                                <option value="">Seleccione un contacto para autocompletar (Opcional)...</option>
+                                {% for c in contactos %}
+                                <option value="{{ c.identificacion }}" data-nombre="{{ c.nombre }}" data-direccion="{{ c.direccion }}" data-ciudad="{{ c.ciudad }}" data-telefono="{{ c.telefono }}" data-lista-precio-id="{{ c.lista_precio_id or '' }}" data-lista-precio-nombre="{{ c.lista_precio.nombre if c.lista_precio else '' }}" data-lista-precio-moneda="{{ c.lista_precio.moneda if c.lista_precio else '' }}">{{ c.identificacion }} - {{ c.nombre }}{% if c.lista_precio %} ({{ c.lista_precio.nombre }}){% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-dark fw-bold">Nombre o Razón Social</label>
+                            <input type="text" id="cliente_nombre" class="form-control" placeholder="Ej: FERRE REPUESTOS URE, C.A" required>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label text-dark fw-bold">RIF / CI</label>
+                            <input type="text" id="cliente_identificacion" class="form-control" placeholder="Ej: J-29904807-0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-dark fw-bold">Domicilio Fiscal / Dirección</label>
+                            <input type="text" id="cliente_direccion" class="form-control" placeholder="Ej: CALLE COMERCIO SECTOR EL SAMAN...">
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label text-dark fw-bold">Ciudad</label>
+                            <input type="text" id="cliente_ciudad" class="form-control" placeholder="Ej: Barquisimeto">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label text-dark fw-bold">Teléfono</label>
+                            <input type="text" id="cliente_telefono" class="form-control" placeholder="Ej: 0414-5004566">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label text-dark fw-bold">Vendedor(a)</label>
+                            <input type="text" id="vendedor_nombre" class="form-control" value="{{ vendedor_predeterminado or current_user.username }}" placeholder="Ej: José Torres" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-dark fw-bold">Observaciones</label>
+                            <input type="text" id="observaciones" class="form-control" placeholder="Opcional">
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buscador de Productos -->
+    <div class="col-lg-6 mb-4">
+        <div class="card border-0 shadow rounded-4 overflow-hidden h-100">
+            <div class="card-header bg-white border-bottom pt-3">
+                <h4 class="text-primary"><i class="bi bi-search"></i> Buscar Producto</h4>
+            </div>
+            <div class="card-body bg-light">
+                <div class="input-group mb-2">
+                    <input type="text" id="buscador" class="form-control form-control-lg" placeholder="Buscar por código, nombre o marca...">
+                </div>
+                {% if modulo_dropshipping_activo %}
+                <div class="form-check form-switch mb-3 text-end">
+                    <input class="form-check-input" type="checkbox" id="soloDropshipping">
+                    <label class="form-check-label text-muted small" for="soloDropshipping">Mostrar solo productos Dropshipping</label>
+                </div>
+                {% endif %}
+                <div class="list-group" id="listaResultados" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Los resultados aparecerán aquí vía JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carrito de Compras -->
+    <div class="col-lg-6 mb-4">
+        <div class="card border-0 shadow rounded-4 overflow-hidden h-100">
+            <div class="card-header bg-white border-bottom pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h4 class="text-success m-0"><i class="bi bi-receipt"></i> Repuestos a Despachar</h4>
+                <div class="d-flex align-items-center">
+                    <label class="me-2 text-muted small fw-bold mb-0">Lista:</label>
+                    <span id="badgeMonedaListaActual" class="badge rounded-pill me-1 px-2 py-1 bg-success text-white shadow-sm" style="font-size: 0.75rem;">
+                        <i class="bi bi-cash me-1"></i>USD
+                    </span>
+                    <select id="selectorListaPrecios" class="form-select form-select-sm fw-bold border-success bg-success-subtle text-success shadow-sm" style="width: auto;">
+                        <option value="base" data-moneda="USD">Precio Base (USD)</option>
+                        {% for lista in listas_precios %}
+                        <option value="{{ lista.id }}" data-moneda="{{ lista.moneda }}">{{ lista.nombre }} ({{ lista.moneda }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div id="alertaTarifaCliente" class="alert alert-info py-2 px-3 m-2 rounded-3 shadow-sm align-items-center justify-content-between" style="display:none;">
+                <span><i class="bi bi-person-check-fill me-1 text-primary"></i> Tarifa aplicada del cliente: <strong id="textoTarifaCliente"></strong></span>
+                <button type="button" class="btn-close btn-close-sm" onclick="document.getElementById('alertaTarifaCliente').style.display='none';"></button>
+            </div>
+            <div class="card-body p-0 table-responsive bg-white">
+                <table class="table table-hover align-middle mb-0" id="tablaCarrito">
+                    <thead class="bg-light text-dark border-bottom">
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-center" style="width: 80px;">Cant.</th>
+                            <th class="text-center">Costo ($)</th>
+                            <th class="text-center" style="width: 105px;"
+                                title="Markup = (Precio - Costo) / Costo. Es el recargo que se aplica sobre lo que te costó el repuesto.&#10;Debajo de cada campo se muestra el Margen = (Precio - Costo) / Precio, que es la porción del precio de venta que te queda como ganancia.&#10;Para un costo de 65 y un precio de 84: markup 29,23% pero margen 22,62%.">
+                                Markup (%)
+                                <small class="d-block fw-normal text-muted" style="font-size:0.7rem; line-height:1;">sobre costo</small>
+                            </th>
+                            <th class="text-center" style="width: 90px;">Desc. (%)</th>
+                            <th class="text-center" id="thHeaderPrecio" style="width: 100px;">Precio ($)</th>
+                            <th class="text-center" style="width: 80px;">Tasa</th>
+                            <th class="text-end">Subtotal</th>
+                            <th class="text-center">Quitar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoCarrito">
+                        <!-- El carrito se llena aquí -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer border-top bg-light p-3">
+                <div class="d-flex justify-content-between mb-2 align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-secondary fw-bold">Desc. Global:</span>
+                        <select id="tipoDescGlobal" class="form-select form-select-sm" style="width: auto;" oninput="renderizarCarrito()">
+                            <option value="%">%</option>
+                            <option value="$">$</option>
+                        </select>
+                        <input type="number" id="valorDescGlobal" class="form-control form-control-sm text-end" style="width: 80px;" value="0" min="0" step="0.01" oninput="renderizarCarrito()">
+                    </div>
+                    <div class="text-end lh-1">
+                        <span class="text-danger fw-bold" id="lblDescGlobal">-$0.00</span>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-secondary fw-bold">Base Imponible:</span>
+                    <span class="text-dark fw-bold" id="lblBaseImponible">$0.00</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-secondary fw-bold">IGTF (3%):</span>
+                    <span class="text-dark fw-bold" id="lblIGTF">$0.00</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-secondary fw-bold">Sub-Total:</span>
+                    <span class="text-dark fw-bold" id="lblSubTotal">$0.00</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary fw-bold">IVA (16%):</span>
+                    <span class="text-dark fw-bold" id="lblIVA">$0.00</span>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between align-items-center mb-3 bg-white p-2 border rounded">
+                    <h5 class="text-dark m-0 fw-bold">TOTAL A PAGAR:</h5>
+                    <h4 class="text-success m-0 fw-bold" id="totalCobrar">$0.00</h4>
+                </div>
+                <button class="btn btn-success btn-lg w-100 fw-bold rounded-pill shadow" id="btnCompletarVenta" disabled>
+                    <i class="bi bi-check-circle"></i> Generar Guía de Despacho
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Procesar Pago -->
+<div class="modal fade" id="modalProcesarPago" tabindex="-1" aria-labelledby="modalProcesarPagoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalProcesarPagoLabel"><i class="bi bi-wallet2 me-2"></i> Procesar Venta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <h6 class="text-muted mb-1">TOTAL A COBRAR</h6>
+                    <h2 class="text-success fw-bold m-0" id="modalTotalCobrar">$0.00</h2>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-dark">Tipo de Venta</label>
+                    <select id="pago_tipo" class="form-select form-select-lg">
+                        <option value="Contado">Al Contado (Requiere pago completo)</option>
+                        <option value="Crédito">A Crédito (Pagos parciales son abonos)</option>
+                    </select>
+                </div>
+                
+                <div id="opcionesCredito" style="display: none;" class="bg-light p-3 rounded border mb-3">
+                    <div class="mb-1">
+                        <label class="form-label fw-bold text-dark m-0">Días de Plazo para el Crédito</label>
+                        <input type="number" id="pago_dias" class="form-control form-control-sm" value="15" min="1">
+                    </div>
+                </div>
+
+                <hr>
+                <div class="d-flex justify-content-between mb-2">
+                    <h6 class="fw-bold mb-0">Pagos Registrados</h6>
+                    <h6 class="fw-bold text-primary mb-0">Resta: <span id="lblFaltaPagar">$0.00</span></h6>
+                </div>
+                <ul id="listaPagosUI" class="list-group mb-3 text-sm">
+                    <!-- Dinámico -->
+                </ul>
+
+                <div class="card card-body bg-light p-2 mb-2" id="divCalculadoraMs" style="display: none; border-left: 4px solid #0dcaf0;">
+                    <label class="form-label fw-bold text-info small mb-1" id="lblCalcMs"><i class="bi bi-calculator me-1"></i> Calculadora rápida</label>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label text-muted mb-0" style="font-size: 10px;" id="lblMontoCalcMs">Monto Pagado</label>
+                            <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="pago_monto_ms" placeholder="0.00" oninput="calcularUsdDesdeMsVentas()">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-muted mb-0 d-flex justify-content-between align-items-center w-100" style="font-size: 10px;" id="lblTasaCalcMs">
+                            <span>Tasa Utilizada</span>
+                            <div>
+                                <span class="badge bg-primary rounded-pill cursor-pointer" style="cursor:pointer; font-size:0.6rem; padding: 2px 4px;" onclick="setTasaVentas(typeof TASA_BCV !== 'undefined' ? TASA_BCV : 1, 'BCV')" title="Usar BCV">BCV</span>
+                                <span class="badge bg-warning text-dark rounded-pill cursor-pointer" style="cursor:pointer; font-size:0.6rem; padding: 2px 4px;" onclick="setTasaVentas(typeof TASA_USDT !== 'undefined' ? TASA_USDT : 1, 'USDT')" title="Usar USDT">USDT</span>
+                                <span class="badge bg-info text-dark rounded-pill cursor-pointer" style="cursor:pointer; font-size:0.6rem; padding: 2px 4px;" onclick="setTasaVentas(typeof TASA_EURO !== 'undefined' ? TASA_EURO : 1, 'Euro')" title="Usar Euro">EUR</span>
+                            </div>
+                        </label>
+                            <input type="number" step="0.0001" min="0.0001" class="form-control form-control-sm" id="pago_tasa_ms" value="1" oninput="calcularMsDesdeUsdVentas()">
+                        </div>
+                    </div>
+                </div>
+
+                                <!-- Alerta de Seguridad Financiera / Fuga de Margen -->
+                <div id="alertaFugaMargen" class="alert alert-warning border border-warning-subtle rounded-3 py-2 px-3 mb-2 shadow-sm" style="display: none; font-size: 0.82rem;">
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="bi bi-exclamation-triangle-fill text-warning fs-5 mt-0"></i>
+                        <div class="flex-grow-1">
+                            <div id="textoAlertaFugaMargen" class="fw-semibold"></div>
+                            <div class="mt-1" id="btnAccionFugaMargen"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card card-body bg-light p-2">
+                    <h6 class="fw-bold small mb-2 text-secondary">Agregar Pago</h6>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <select id="pago_metodo" class="form-select form-select-sm fw-semibold">
+                                <optgroup label="Bolívares (Bs)">
+                                    <option value="Pago Móvil (Bs)">Pago Móvil (Bs)</option>
+                                    <option value="Transferencia Bancaria (Bs)">Transferencia Bancaria (Bs)</option>
+                                    <option value="Punto de Venta (Bs)">Punto de Venta (Bs)</option>
+                                </optgroup>
+                                <optgroup label="Divisas ($ / €)">
+                                    <option value="Efectivo USD">Efectivo USD</option>
+                                    <option value="Zelle">Zelle</option>
+                                    <option value="Efectivo EUR">Efectivo EUR</option>
+                                </optgroup>
+                                <optgroup label="Cripto">
+                                    <option value="Binance USDT">Binance USDT</option>
+                                </optgroup>
+                                <optgroup label="Otros">
+                                    <option value="Otro">Otro</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <input type="number" id="pago_monto" class="form-control form-control-sm" placeholder="Monto ($)" step="0.01" oninput="calcularMsDesdeUsdVentas()">
+                        </div>
+                        <div class="col-12" id="divReferencia" style="display: none;">
+                            <input type="text" id="pago_referencia" class="form-control form-control-sm" placeholder="Referencia / N° Recibo">
+                        </div>
+                        <div class="col-6" id="divBancoOrigen" style="display: none;">
+                            <input type="text" id="pago_banco_origen" class="form-control form-control-sm" placeholder="Banco Origen">
+                        </div>
+                        <div class="col-6" id="divBancoDestino" style="display: none;">
+                            <input type="text" id="pago_banco_destino" class="form-control form-control-sm" placeholder="Banco Destino">
+                        </div>
+                        <div class="col-12 text-end mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="btnAgregarPago"><i class="bi bi-plus-circle"></i> Añadir Pago</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success fw-bold px-4" id="btnConfirmarVentaDefinitiva">
+                    <i class="bi bi-check-circle me-1"></i> Confirmar y Generar Guía
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if modulo_dropshipping_activo %}
+<!-- Estilos para el selector de proveedor en el modal -->
+<style>
+    #modalCambiarProveedor .modal-content,
+    #modalCambiarProveedor .modal-body {
+        overflow: visible !important;
+    }
+    #modalCambiarProveedor .ts-wrapper {
+        width: 100%;
+    }
+    #modalCambiarProveedor .ts-dropdown {
+        z-index: 1070 !important;
+        position: absolute !important;
+    }
+    #modalCambiarProveedor .ts-control {
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.95rem;
+    }
+</style>
+
+<!-- Modal Cambiar Proveedor Dropshipping -->
+<div class="modal fade" id="modalCambiarProveedor" tabindex="-1" aria-labelledby="modalCambiarProveedorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalCambiarProveedorLabel"><i class="bi bi-truck me-2"></i> Cambiar Proveedor de Dropshipping</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted fw-bold mb-3" id="modalProveedorProductoNombre"></p>
+                <div class="mb-3">
+                    <label for="selectModalProveedor" class="form-label fw-bold"><i class="bi bi-search me-1 text-primary"></i> Seleccionar Proveedor (Escribe para buscar):</label>
+                    <select id="selectModalProveedor" class="form-select" placeholder="Escribe el nombre o RIF del proveedor...">
+                        <option value="">-- Seleccionar Proveedor --</option>
+                        {% for c in contactos %}
+                        <option value="{{ c.id }}">{{ c.nombre }} ({{ c.identificacion or 'Sin RIF' }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarProveedorModal" onclick="guardarProveedorModalDirecto()"><i class="bi bi-save me-1"></i> Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+const TASA_BCV = {{ tasa_bcv.tasa if tasa_bcv else 0 }};
+const TASA_USDT = {{ tasa_usdt.tasa if tasa_usdt else 0 }};
+const TASA_EURO = {{ tasa_euro.tasa if tasa_euro else 0 }};
+const MODULO_DROPSHIPPING_ACTIVO = {{ 'true' if modulo_dropshipping_activo else 'false' }};
+let todosLosProductos = [];
+let todosLosContactos = [];
+let carrito = [];
+let totalGeneral = 0;
+
+    // Función para aplicar automáticamente la tarifa/tasa del cliente
+    function aplicarTarifaPreferencialCliente(c) {
+        if (!c || !c.lista_precio_id) return;
+        const selectorLista = document.getElementById('selectorListaPrecios');
+        if (!selectorLista) return;
+
+        const targetVal = String(c.lista_precio_id);
+        const optionExists = Array.from(selectorLista.options).some(opt => opt.value === targetVal);
+        
+        if (optionExists && selectorLista.value !== targetVal) {
+            selectorLista.value = targetVal;
+            selectorLista.dispatchEvent(new Event('change'));
+            
+            const alerta = document.getElementById('alertaTarifaCliente');
+            const txt = document.getElementById('textoTarifaCliente');
+            if (alerta && txt) {
+                txt.innerText = c.lista_precio_nombre ? `${c.lista_precio_nombre} (${c.lista_precio_moneda || ''})` : 'Tarifa preferencial';
+                alerta.style.display = 'flex';
+                setTimeout(() => {
+                    alerta.style.display = 'none';
+                }, 6000);
+            }
+        }
+    }
+
+    // 1. Cargar los productos desde el backend
+    fetch('/api/productos')
+        .then(response => response.json())
+        .then(data => {
+            todosLosProductos = data;
+        });
+
+    // 1.5 Cargar contactos
+    fetch('/api/contactos')
+        .then(response => response.json())
+        .then(data => {
+            todosLosContactos = data;
+            const ts = inicializarTomSelectProveedorModal();
+            if (ts) {
+                data.forEach(c => {
+                    ts.addOption({
+                        value: String(c.id),
+                        text: `${c.nombre} (${c.identificacion || 'Sin RIF'})`
+                    });
+                });
+            }
+        });
+
+    // Autocompletado de Clientes
+    const inputNombreCliente = document.getElementById('cliente_nombre');
+    
+    // Crear contenedor visual para las sugerencias de clientes
+    const sugerenciasCliente = document.createElement('div');
+    sugerenciasCliente.className = 'list-group position-absolute w-100 shadow';
+    sugerenciasCliente.style.zIndex = '1000';
+    inputNombreCliente.parentNode.appendChild(sugerenciasCliente);
+    inputNombreCliente.parentNode.style.position = 'relative';
+
+    inputNombreCliente.addEventListener('keyup', (e) => {
+        const query = e.target.value.toLowerCase();
+        sugerenciasCliente.innerHTML = '';
+        
+        if (query.length < 2) return;
+
+        const resultados = todosLosContactos.filter(c => 
+            (c.tipo === 'Cliente' || c.tipo === 'Ambos' || !c.tipo) &&
+            ((c.nombre || '').toLowerCase().includes(query) || 
+            (c.identificacion || '').toLowerCase().includes(query))
+        ).slice(0, 4);
+
+        resultados.forEach(c => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = "list-group-item list-group-item-action";
+            btn.innerHTML = `<strong>${c.nombre}</strong> <small class="text-muted">(${c.identificacion})</small>`;
+            btn.onclick = () => {
+                document.getElementById('cliente_nombre').value = c.nombre;
+                document.getElementById('cliente_identificacion').value = c.identificacion || '';
+                document.getElementById('cliente_direccion').value = c.direccion || '';
+                document.getElementById('cliente_telefono').value = c.telefono || '';
+                sugerenciasCliente.innerHTML = ''; // Limpiar sugerencias
+                if (typeof aplicarTarifaPreferencialCliente === 'function') {
+                    aplicarTarifaPreferencialCliente(c);
+                }
+            };
+            sugerenciasCliente.appendChild(btn);
+        });
+    });
+
+    // Ocultar sugerencias si se hace clic fuera
+    document.addEventListener('click', (e) => {
+        if (e.target !== inputNombreCliente) {
+            sugerenciasCliente.innerHTML = '';
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        if (typeof actualizarEstiloSelectorLista === "function") { actualizarEstiloSelectorLista(); }
+        let listaPreciosActual = "base";
+        // Autocompletar datos del cliente cuando se selecciona del buscador
+        const buscadorContacto = document.getElementById('buscadorContacto');
+        if (buscadorContacto) {
+            buscadorContacto.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    document.getElementById('cliente_nombre').value = selectedOption.getAttribute('data-nombre') || '';
+                    document.getElementById('cliente_identificacion').value = selectedOption.value || '';
+                    document.getElementById('cliente_direccion').value = selectedOption.getAttribute('data-direccion') || '';
+                    document.getElementById('cliente_ciudad').value = selectedOption.getAttribute('data-ciudad') || '';
+                    document.getElementById('cliente_telefono').value = selectedOption.getAttribute('data-telefono') || '';
+                    const lpId = selectedOption.getAttribute('data-lista-precio-id');
+                    const lpNombre = selectedOption.getAttribute('data-lista-precio-nombre');
+                    const lpMoneda = selectedOption.getAttribute('data-lista-precio-moneda');
+                    if (lpId && typeof aplicarTarifaPreferencialCliente === 'function') {
+                        aplicarTarifaPreferencialCliente({
+                            lista_precio_id: lpId,
+                            lista_precio_nombre: lpNombre,
+                            lista_precio_moneda: lpMoneda
+                        });
+                    }
+                }
+            });
+        }
+
+        const buscador = document.getElementById('buscador');
+    const listaResultados = document.getElementById('listaResultados');
+
+
+
+
+
+    window.renderizarResultadosBuscador = function renderizarResultadosBuscador() {
+        const query = (buscador.value || '').toLowerCase().trim();
+        listaResultados.innerHTML = '';
+        
+        if (query.length < 2) return;
+
+        const checkSoloDs = document.getElementById('soloDropshipping');
+        const soloDropshipping = checkSoloDs ? checkSoloDs.checked : false;
+
+        const resultados = todosLosProductos.filter(p => {
+            const matchQuery = (p.nombre || '').toLowerCase().includes(query) || 
+                               (p.codigo || '').toLowerCase().includes(query) || 
+                               (p.marca || '').toLowerCase().includes(query);
+            if (!matchQuery) return false;
+            if (MODULO_DROPSHIPPING_ACTIVO && soloDropshipping && !p.es_dropshipping) return false;
+            return true;
+        }).slice(0, 5);
+
+        resultados.forEach(p => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+
+            const esDs = MODULO_DROPSHIPPING_ACTIVO && p.es_dropshipping;
+            const enCarrito = carrito.filter(it => it.id === p.id).reduce((sum, it) => sum + it.cantidad, 0);
+            const stockDisponible = Math.max(0, (p.stock || 0) - enCarrito);
+
+            let stockBadgeHtml = '';
+            if (esDs) {
+                stockBadgeHtml = '<span class="badge bg-info text-white">Envío Directo</span>';
+            } else if (stockDisponible <= 0) {
+                stockBadgeHtml = `<span class="badge bg-danger shadow-sm"><i class="bi bi-x-circle me-1"></i>Stock: 0 ${enCarrito > 0 ? '(En carrito: ' + enCarrito + ')' : '(Agotado)'}</span>`;
+            } else {
+                stockBadgeHtml = `<span class="badge ${stockDisponible <= 2 ? 'bg-warning text-dark' : 'bg-secondary'}">Stock: ${stockDisponible}${enCarrito > 0 ? ' <small>(' + enCarrito + ' en carrito)</small>' : ''}</span>`;
+            }
+
+            const sinStock = !esDs && stockDisponible <= 0;
+            btn.className = `list-group-item list-group-item-action d-flex justify-content-between align-items-center ${sinStock ? 'bg-light opacity-75' : ''}`;
+            btn.innerHTML = `
+                <div>
+                    <h6 class="mb-0 text-dark fw-bold">${p.nombre} ${esDs ? '<span class="badge bg-primary ms-1"><i class="bi bi-airplane"></i> DS</span>' : ''}</h6>
+                    <small class="text-muted">Cód: ${p.codigo} | Marca: ${p.marca} ${esDs ? '| Prov: ' + p.proveedor_nombre : ''}</small>
+                </div>
+                <div class="text-end">
+                    <span class="d-block fw-bold text-success">$ ${(p.precios_listas && p.precios_listas[listaPreciosActual] !== undefined ? p.precios_listas[listaPreciosActual] : p.precio).toFixed(2)}</span>
+                    ${stockBadgeHtml}
+                </div>
+            `;
+            btn.onclick = (e) => {
+                e.preventDefault();
+                if (sinStock) {
+                    alert(`¡No hay más stock disponible de este producto! (Stock total: ${p.stock}, ya agregaste ${enCarrito} al carrito).`);
+                    return;
+                }
+                agregarAlCarrito(p);
+            };
+            listaResultados.appendChild(btn);
+        });
+    };
+
+    buscador.addEventListener('keyup', renderizarResultadosBuscador);
+
+
+
+    // --- MEJORA 5: ESTILO VISUAL DE COLORES SEGÚN MONEDA / LISTA ACTIVA ---
+    function actualizarEstiloSelectorLista() {
+        const sel = document.getElementById('selectorListaPrecios');
+        if (!sel) return;
+        const opt = sel.options[sel.selectedIndex];
+        const moneda = opt ? opt.getAttribute('data-moneda') : 'USD';
+        const val = sel.value;
+        const badge = document.getElementById('badgeMonedaListaActual');
+
+        // Limpiar clases previas
+        sel.classList.remove(
+            'border-primary', 'bg-primary-subtle', 'text-primary',
+            'border-warning', 'bg-warning-subtle', 'text-dark',
+            'border-info', 'bg-info-subtle', 'text-info-emphasis',
+            'border-success', 'bg-success-subtle', 'text-success',
+            'border-secondary', 'bg-secondary-subtle'
+        );
+
+        if (badge) {
+            badge.className = 'badge rounded-pill me-1 px-2 py-1 shadow-sm';
+        }
+
+        if (moneda === 'BCV' || (opt && opt.text.toLowerCase().includes('bcv'))) {
+            sel.classList.add('border-primary', 'bg-primary-subtle', 'text-primary', 'fw-bold');
+            if (badge) {
+                badge.classList.add('bg-primary', 'text-white');
+                badge.innerHTML = '<i class="bi bi-bank me-1"></i>BCV';
+            }
+        } else if (moneda === 'USDT' || (opt && opt.text.toLowerCase().includes('usdt'))) {
+            sel.classList.add('border-warning', 'bg-warning-subtle', 'text-dark', 'fw-bold');
+            if (badge) {
+                badge.classList.add('bg-warning', 'text-dark');
+                badge.innerHTML = '<i class="bi bi-currency-bitcoin me-1"></i>USDT';
+            }
+        } else if (moneda === 'EURO' || (opt && opt.text.toLowerCase().includes('euro'))) {
+            sel.classList.add('border-info', 'bg-info-subtle', 'text-info-emphasis', 'fw-bold');
+            if (badge) {
+                badge.classList.add('bg-info', 'text-dark');
+                badge.innerHTML = '<i class="bi bi-currency-euro me-1"></i>EUR';
+            }
+        } else if (val === 'base' || (opt && opt.text.toLowerCase().includes('base'))) {
+            sel.classList.add('border-success', 'bg-success-subtle', 'text-success', 'fw-bold');
+            if (badge) {
+                badge.classList.add('bg-success', 'text-white');
+                badge.innerHTML = '<i class="bi bi-cash me-1"></i>USD';
+            }
+        } else {
+            sel.classList.add('border-secondary', 'bg-secondary-subtle', 'text-dark', 'fw-bold');
+            if (badge) {
+                badge.classList.add('bg-secondary', 'text-white');
+                badge.innerHTML = '<i class="bi bi-tag me-1"></i>' + (opt ? opt.text.split(' ')[0] : 'Lista');
+            }
+        }
+    }
+
+    // --- MEJORA 1: SUGERIR MÉTODO DE PAGO SEGÚN LISTA ACTIVA ---
+    function sugerirMetodoPagoSegunLista() {
+        const sel = document.getElementById('selectorListaPrecios');
+        const metodoSel = document.getElementById('pago_metodo');
+        if (!sel || !metodoSel) return;
+
+        const opt = sel.options[sel.selectedIndex];
+        const monedaCart = opt ? opt.getAttribute('data-moneda') : 'USD';
+
+        if (monedaCart === 'BCV' || (opt && opt.text.toLowerCase().includes('bcv'))) {
+            metodoSel.value = 'Pago Móvil (Bs)';
+        } else if (monedaCart === 'USDT' || (opt && opt.text.toLowerCase().includes('usdt'))) {
+            metodoSel.value = 'Binance USDT';
+        } else if (monedaCart === 'EURO' || (opt && opt.text.toLowerCase().includes('euro'))) {
+            metodoSel.value = 'Efectivo EUR';
+        } else {
+            metodoSel.value = 'Efectivo USD';
+        }
+    }
+
+    // --- MEJORA 3: CONTROL DE SEGURIDAD FINANCIERA (FUGA DE MARGEN) ---
+    function verificarFugaMargen() {
+        const sel = document.getElementById('selectorListaPrecios');
+        const alerta = document.getElementById('alertaFugaMargen');
+        const texto = document.getElementById('textoAlertaFugaMargen');
+        const btnAccion = document.getElementById('btnAccionFugaMargen');
+        const metodoSel = document.getElementById('pago_metodo');
+
+        if (!sel || !alerta || !metodoSel) return;
+
+        const opt = sel.options[sel.selectedIndex];
+        const monedaCart = opt ? opt.getAttribute('data-moneda') : 'USD';
+        const listaNombre = opt ? opt.text : 'Precio Base';
+        const metodo = metodoSel.value;
+
+        const esPagoBs = metodo.includes('Pago Móvil') || metodo.includes('Transferencia') || metodo.includes('Punto de Venta');
+        const esPagoUsd = metodo === 'Efectivo USD' || metodo === 'Zelle';
+        const esPagoUsdt = metodo.includes('USDT');
+        const esPagoEuro = metodo.includes('EUR') || metodo.includes('Euro');
+
+        alerta.style.display = 'none';
+        texto.innerHTML = '';
+        btnAccion.innerHTML = '';
+
+        // Caso A: El carrito está en BCV (con recargo) pero pagan en Efectivo USD o USDT
+        if (monedaCart === 'BCV' && (esPagoUsd || esPagoUsdt)) {
+            alerta.style.display = 'block';
+            alerta.className = 'alert alert-warning border border-warning-subtle rounded-3 py-2 px-3 mb-2 shadow-sm';
+            texto.innerHTML = `⚠️ <strong>Aviso de Precio:</strong> El carrito tiene <strong>${listaNombre}</strong> (+recargo BCV), pero el pago seleccionado es en <strong>${metodo}</strong>.`;
+            btnAccion.innerHTML = `<button type="button" class="btn btn-sm btn-outline-dark fw-bold py-0 px-2 mt-1 rounded-pill" onclick="cambiarListaDesdeModal('base')"><i class="bi bi-arrow-repeat me-1"></i>Cambiar a Precio Base (Efectivo USD)</button>`;
+        }
+        // Caso B: El carrito está en Precio Base (USD sin recargo) pero pagan en Bolívares (Pago Móvil / Transferencia)
+        else if ((monedaCart === 'USD' || sel.value === 'base') && esPagoBs) {
+            alerta.style.display = 'block';
+            alerta.className = 'alert alert-danger border border-danger-subtle rounded-3 py-2 px-3 mb-2 shadow-sm';
+            texto.innerHTML = `🚨 <strong>Atención a Margen:</strong> El carrito está en <strong>Precio Base</strong> (sin recargo cambiario), pero el pago es en <strong>Bolívares (${metodo})</strong>. Deberías aplicar Precio BCV para cubrir la tasa oficial.`;
+            btnAccion.innerHTML = `<button type="button" class="btn btn-sm btn-outline-danger fw-bold py-0 px-2 mt-1 rounded-pill" onclick="cambiarListaDesdeModal('BCV')"><i class="bi bi-arrow-repeat me-1"></i>Cambiar a Precio BCV</button>`;
+        }
+        // Caso C: El carrito está en BCV pero pagan en Euro
+        else if (monedaCart === 'BCV' && esPagoEuro) {
+            alerta.style.display = 'block';
+            alerta.className = 'alert alert-info border border-info-subtle rounded-3 py-2 px-3 mb-2 shadow-sm';
+            texto.innerHTML = `ℹ️ <strong>Aviso:</strong> El carrito tiene <strong>${listaNombre}</strong>, pero el pago seleccionado es en <strong>Euros</strong>.`;
+            btnAccion.innerHTML = `<button type="button" class="btn btn-sm btn-outline-info fw-bold py-0 px-2 mt-1 rounded-pill" onclick="cambiarListaDesdeModal('EURO')"><i class="bi bi-arrow-repeat me-1"></i>Cambiar a Precio Euro</button>`;
+        }
+    }
+
+    window.cambiarListaDesdeModal = function(tipoMoneda) {
+        const sel = document.getElementById('selectorListaPrecios');
+        if (!sel) return;
+
+        let targetValue = null;
+        if (tipoMoneda === 'base') {
+            targetValue = 'base';
+        } else {
+            for (let i = 0; i < sel.options.length; i++) {
+                const opt = sel.options[i];
+                if (opt.getAttribute('data-moneda') === tipoMoneda || opt.text.toUpperCase().includes(tipoMoneda)) {
+                    targetValue = opt.value;
+                    break;
+                }
+            }
+        }
+
+        if (targetValue !== null) {
+            sel.value = targetValue;
+            sel.dispatchEvent(new Event('change'));
+            
+            setTimeout(() => {
+                const totalNum = parseFloat(document.getElementById('totalCobrar').getAttribute('data-usd')) || 0;
+                document.getElementById('pago_monto').value = totalNum.toFixed(2);
+                document.getElementById('pago_metodo').dispatchEvent(new Event('change'));
+                verificarFugaMargen();
+            }, 150);
+        }
+    };
+
+    const selectorListaPrecios = document.getElementById("selectorListaPrecios");
+    if (selectorListaPrecios) {
+        selectorListaPrecios.addEventListener('change', (e) => {
+            listaPreciosActual = e.target.value;
+            actualizarEstiloSelectorLista();
+            // Actualizar carrito
+            carrito.forEach(item => {
+                // Precio de la lista recien seleccionada, con "base" como respaldo.
+                let precioLista = parseFloat(
+                    item.precios_listas && item.precios_listas[listaPreciosActual] !== undefined
+                        ? item.precios_listas[listaPreciosActual]
+                        : (item.precios_listas ? item.precios_listas['base'] : item.precio)
+                ) || 0;
+
+                // precio_original es la referencia sobre la que actualizarDescuento()
+                // recalcula el precio, asi que TIENE que seguir a la lista activa.
+                // Antes se quedaba en la lista con la que se agrego el producto y en
+                // "descuento" se guardaba la diferencia entre ambas listas: un +20%
+                // de recargo BCV aparecia como -20 de descuento. Al tocar el campo
+                // "Desc. (%)" el precio se recalculaba sobre la lista vieja y el
+                // recargo se perdia (escribir 0 bajaba el precio de 84,00 a 70,00).
+                item.precio_original = precioLista;
+
+                // Se respeta el descuento manual que ya hubiera puesto el vendedor,
+                // pero aplicado sobre el precio de la lista nueva.
+                const desc = Math.min(Math.max(parseFloat(item.descuento) || 0, 0), 100);
+                item.descuento = desc;
+                item.precio = precioLista * (1 - desc / 100);
+
+                if (item.costo > 0) {
+                    item.margen = ((item.precio - item.costo) / item.costo) * 100;
+                }
+            });
+            renderizarCarrito();
+            // Actualizar buscador si hay texto
+            const event = new Event('keyup');
+            document.getElementById('buscador').dispatchEvent(event);
+        });
+    }
+
+    const soloDropshippingCheckbox = document.getElementById('soloDropshipping');
+    if (soloDropshippingCheckbox) {
+        soloDropshippingCheckbox.addEventListener('change', () => {
+            // Trigger keyup event on the search input to update the list
+            const event = new Event('keyup');
+            buscador.dispatchEvent(event);
+        });
+    }
+
+    // 3. Lógica del Carrito
+    function agregarAlCarrito(producto) {
+        const esDs = MODULO_DROPSHIPPING_ACTIVO && producto.es_dropshipping;
+        const existe = carrito.find(item => item.id === producto.id);
+        if (existe) {
+            if (esDs || existe.cantidad < producto.stock) {
+                existe.cantidad++;
+            } else {
+                alert(`¡No hay suficiente stock de este producto! (Stock total: ${producto.stock}, ya agregaste ${existe.cantidad} al carrito).`);
+                return;
+            }
+        } else {
+            if (!esDs && (producto.stock || 0) <= 0) {
+                alert("¡Este producto no tiene stock disponible (Stock: 0)!");
+                return;
+            }
+            let precioAplicar = producto.precios_listas && producto.precios_listas[listaPreciosActual] !== undefined ? parseFloat(producto.precios_listas[listaPreciosActual]) : parseFloat(producto.precio);
+            let margen = 0;
+            if (producto.costo > 0) {
+                margen = ((precioAplicar - producto.costo) / producto.costo) * 100;
+            }
+            carrito.push({ ...producto, precio_original: precioAplicar, precio: precioAplicar, cantidad: 1, margen: margen, descuento: 0 });
+        }
+        renderizarCarrito();
+    }
+
+    window.renderizarCarrito = function renderizarCarrito() {
+        const cuerpoCarrito = document.getElementById('cuerpoCarrito');
+        cuerpoCarrito.innerHTML = '';
+        totalGeneral = 0;
+        
+        let sym = '$';
+        
+        const monedaSelect = document.getElementById('selectorListaPrecios');
+        const monedaCart = (monedaSelect && monedaSelect.options[monedaSelect.selectedIndex]) ? monedaSelect.options[monedaSelect.selectedIndex].getAttribute('data-moneda') : 'USD';
+        
+        if (monedaCart === 'EURO') {
+            sym = '€ ';
+        } else if (monedaCart === 'USDT') {
+            sym = 'USDT ';
+        } else {
+            sym = '$ ';
+        }
+        
+        window.simboloMonedaVenta = sym;
+        const thPrecio = document.getElementById('thHeaderPrecio');
+        if (thPrecio) thPrecio.innerText = `Precio (${sym.trim()})`;
+        let secSym = 'Bs. ';
+        
+        const calcSecundario = (amount) => {
+            if (monedaCart === 'EURO' && typeof TASA_EURO !== 'undefined' && TASA_EURO > 0) {
+                return amount * TASA_EURO;
+            } else if (monedaCart === 'USDT' && typeof TASA_USDT !== 'undefined' && TASA_USDT > 0) {
+                return amount * TASA_USDT;
+            } else {
+                return typeof TASA_BCV !== 'undefined' && TASA_BCV > 0 ? amount * TASA_BCV : amount;
+            }
+        };
+        carrito.forEach((item, index) => {
+            const subtotal = item.precio * item.cantidad;
+            totalGeneral += subtotal;
+
+            // item.margen es MARKUP sobre costo: (precio - costo) / costo, que es lo
+            // que edita el vendedor y con lo que se fija el precio. El margen real,
+            // la parte del precio de venta que queda como ganancia, es sobre el
+            // precio: (precio - costo) / precio. Para costo 65 y precio 84 son
+            // 29,23% y 22,62%: mostrar solo el primero llamandolo "margen" lleva a
+            // vender mas barato de lo que uno cree.
+            const margenPct = item.precio > 0 ? ((item.precio - (item.costo || 0)) / item.precio) * 100 : 0;
+
+            cuerpoCarrito.innerHTML += `
+                <tr>
+                    <td>
+                        <div class="fw-bold text-dark">${item.nombre} ${(MODULO_DROPSHIPPING_ACTIVO && item.es_dropshipping) ? '<span class="badge bg-primary ms-1"><i class="bi bi-airplane"></i> DS</span>' : ''}</div>
+                        <small class="text-muted">${(MODULO_DROPSHIPPING_ACTIVO && item.es_dropshipping) ? 'Prov: <strong>' + (item.proveedor_nombre || 'Sin Proveedor') + '</strong> <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none" onclick="abrirModalProveedor(' + index + ')"><i class="bi bi-pencil-square"></i> Cambiar</button> | <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none text-success" onclick="dividirItemProveedor(' + index + ')"><i class="bi bi-plus-circle"></i> Dividir</button>' : 'Stock Total: <strong>' + item.stock + '</strong> | ' + (item.stock - item.cantidad <= 0 ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Quedan: 0</span>' : '<span class="badge bg-light text-muted border">Quedan: ' + (item.stock - item.cantidad) + '</span>')}</small>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center" 
+                               value="${item.cantidad}" min="1" ${(MODULO_DROPSHIPPING_ACTIVO && item.es_dropshipping) ? '' : 'max="' + item.stock + '"'} 
+                               onchange="actualizarCantidad(${index}, this.value)">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center" 
+                               value="${(item.costo || 0).toFixed(2)}" step="0.01" min="0" 
+                               onchange="actualizarCostoItem(${index}, this.value)">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center ${item.margen < 0 ? 'text-danger fw-bold border-danger bg-danger-subtle' : ''}" 
+                               value="${(item.margen || 0).toFixed(2)}" step="0.01" 
+                               onchange="actualizarMargen(${index}, this.value)">
+                        <div class="text-center mt-1 lh-1">
+                            <small class="${margenPct < 0 ? 'text-danger fw-bold' : 'text-muted'}" style="font-size:0.7rem;"
+                                   title="Margen sobre el precio de venta: (Precio - Costo) / Precio">
+                                Margen ${margenPct.toFixed(2)}%
+                            </small>
+                        </div>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center text-primary fw-bold" 
+                               value="${(item.descuento || 0).toFixed(2)}" step="0.01" min="0" max="100"
+                               onchange="actualizarDescuento(${index}, this.value)">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center fw-bold" 
+                               value="${item.precio.toFixed(2)}" step="0.01" min="0"
+                               onchange="actualizarPrecioVenta(${index}, this.value)">
+                        <div class="text-center mt-1 lh-1"><small class="text-primary fw-bold">${secSym}${calcSecundario(item.precio).toFixed(2)}</small></div>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm text-center text-muted bg-light" value="${parseFloat(calcSecundario(1).toFixed(4))}" readonly tabindex="-1" title="Tasa de cambio aplicada">
+                    </td>
+                    <td class="text-end fw-bold text-success">
+                        <div class="fs-5">${sym}${subtotal.toFixed(2)}</div>
+                        <div class="text-primary fs-6 mt-1">${secSym}${calcSecundario(subtotal).toFixed(2)}</div>
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-outline-danger btn-sm" onclick="eliminarDelCarrito(${index})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        const tipoDescGlobal = document.getElementById('tipoDescGlobal') ? document.getElementById('tipoDescGlobal').value : '%';
+        const valorDescGlobal = document.getElementById('valorDescGlobal') ? parseFloat(document.getElementById('valorDescGlobal').value) || 0 : 0;
+        let descuentoGlobalAplicado = 0;
+        if (tipoDescGlobal === '%') {
+            descuentoGlobalAplicado = totalGeneral * (valorDescGlobal / 100);
+        } else {
+            descuentoGlobalAplicado = valorDescGlobal;
+        }
+        if (descuentoGlobalAplicado > totalGeneral) {
+            descuentoGlobalAplicado = totalGeneral;
+        }
+        
+        // Igual que los demas renglones del resumen: solo en dolares. El Bs va
+        // unicamente en el TOTAL, con una sola conversion (ver el bloque de
+        // abajo para el motivo).
+        if (document.getElementById('lblDescGlobal')) {
+            document.getElementById('lblDescGlobal').innerHTML = `-${sym}${descuentoGlobalAplicado.toFixed(2)}`;
+        }
+        
+        const baseImponible = totalGeneral - descuentoGlobalAplicado;
+        const igtf = baseImponible * 0.03;
+        const subTotal = baseImponible + igtf;
+        const iva = baseImponible * 0.16;
+        const totalPagar = subTotal + iva;
+
+        /* ------------------------------------------------------------------
+           El monto en Bs sale de UNA sola conversion, sobre el total en dolares
+           YA REDONDEADO: que es el que se guarda en la BD (ver el payload de
+           mas abajo, total: totalPagar.toFixed(2)) y el que imprime el recibo.
+
+           Antes se convertia cada renglon fiscal por separado y se sumaban los
+           redondeos. Eso arrastraba el residuo de decimales que el total en
+           dolares descarta al redondear, y daba un total en Bs distinto al del
+           modal de cobro: en una venta de $176,00 a 955,90 el carrito decia
+           168.239,36 Bs y el modal 168.238,40 Bs (0,96 Bs de descuadre).
+
+           Los renglones fiscales se muestran SOLO en dolares a proposito, no
+           por simplificar: convertidos uno a uno, la suma de sus redondeos no
+           coincide siempre con el redondeo del total, y no hay formula que lo
+           evite (cada renglon pierde hasta medio centimo, y tres renglones
+           pueden perder mas que el total solo). Mostrar Bs unicamente en el
+           TOTAL es la unica forma de que la cifra sea exacta y de que carrito,
+           modal y recibo digan siempre lo mismo.
+           ------------------------------------------------------------------ */
+        const redondear = (n) => Math.round(n * 100) / 100;
+        const totalPagarUsd = redondear(totalPagar);
+        const totalPagarBs = redondear(calcSecundario(totalPagarUsd));
+
+        document.getElementById('lblBaseImponible').innerHTML = `${sym}${baseImponible.toFixed(2)}`;
+        document.getElementById('lblIGTF').innerHTML = `${sym}${igtf.toFixed(2)}`;
+        document.getElementById('lblSubTotal').innerHTML = `${sym}${subTotal.toFixed(2)}`;
+        document.getElementById('lblIVA').innerHTML = `${sym}${iva.toFixed(2)}`;
+        document.getElementById('totalCobrar').setAttribute('data-usd', totalPagarUsd.toFixed(2));
+        document.getElementById('totalCobrar').innerHTML = `${sym}${totalPagarUsd.toFixed(2)} <br><small class="text-success fs-5">${totalPagarBs.toFixed(2)} Bs.</small>`;
+        document.getElementById('btnCompletarVenta').disabled = carrito.length === 0;
+
+        if (typeof renderizarResultadosBuscador === 'function') {
+            renderizarResultadosBuscador();
+        }
+    }
+
+    let itemIndexCambiarProveedor = null;
+    let tsModalProveedor = null;
+
+    function inicializarTomSelectProveedorModal() {
+        const select = document.getElementById('selectModalProveedor');
+        if (!select) return null;
+        if (tsModalProveedor) return tsModalProveedor;
+
+        if (select.tomselect) {
+            tsModalProveedor = select.tomselect;
+            return tsModalProveedor;
+        }
+
+        if (typeof TomSelect !== 'undefined') {
+            tsModalProveedor = new TomSelect(select, {
+                create: false,
+                placeholder: "Escribe el nombre o RIF del proveedor...",
+                searchField: ["text"],
+                maxOptions: 500,
+                sortField: {
+                    field: "text",
+                    direction: "asc"
+                }
+            });
+
+            // Permitir guardar con Enter si la lista ya está cerrada y hay un valor
+            if (tsModalProveedor.control_input) {
+                tsModalProveedor.control_input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !tsModalProveedor.isOpen && tsModalProveedor.getValue()) {
+                        e.preventDefault();
+                        guardarProveedorModalDirecto();
+                    }
+                });
+            }
+
+            return tsModalProveedor;
+        }
+        return null;
+    }
+
+    // Enfocar automáticamente el buscador de proveedor al abrir el modal
+    document.addEventListener("DOMContentLoaded", function () {
+        inicializarTomSelectProveedorModal();
+        const modalEl = document.getElementById('modalCambiarProveedor');
+        if (modalEl) {
+            modalEl.addEventListener('shown.bs.modal', function () {
+                const ts = inicializarTomSelectProveedorModal();
+                if (ts) {
+                    setTimeout(() => { ts.focus(); }, 100);
+                }
+            });
+        }
+    });
+
+    window.abrirModalProveedor = function(index) {
+        itemIndexCambiarProveedor = index;
+        const item = carrito[index];
+        if (!item) return;
+
+        const infoEl = document.getElementById('modalProveedorProductoNombre');
+        if (infoEl) {
+            infoEl.innerText = `Repuesto: ${item.nombre}`;
+        }
+        
+        const ts = inicializarTomSelectProveedorModal();
+        if (ts) {
+            if (item.proveedor_id) {
+                ts.setValue(String(item.proveedor_id));
+            } else {
+                ts.clear();
+            }
+        } else {
+            const select = document.getElementById('selectModalProveedor');
+            if (select) {
+                select.value = item.proveedor_id ? String(item.proveedor_id) : "";
+            }
+        }
+
+        const modalEl = document.getElementById('modalCambiarProveedor');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    };
+
+    window.dividirItemProveedor = function(index) {
+        const itemOriginal = carrito[index];
+        if (!itemOriginal) return;
+
+        // Crear un nuevo renglón clonado para asignar otro proveedor
+        const nuevoItem = { ...itemOriginal, cantidad: 1 };
+        
+        // Insertar el nuevo item justo después del original
+        carrito.splice(index + 1, 0, nuevoItem);
+        renderizarCarrito();
+        
+        // Abrir inmediatamente el modal de proveedor para el nuevo renglón
+        abrirModalProveedor(index + 1);
+    };
+
+    window.guardarProveedorModalDirecto = function() {
+        if (itemIndexCambiarProveedor === null || itemIndexCambiarProveedor < 0 || itemIndexCambiarProveedor >= carrito.length) {
+            alert("No se ha seleccionado ningún producto.");
+            return;
+        }
+        
+        const ts = inicializarTomSelectProveedorModal();
+        let nuevoProvId = null;
+        if (ts) {
+            nuevoProvId = parseInt(ts.getValue());
+        } else {
+            const select = document.getElementById('selectModalProveedor');
+            nuevoProvId = select ? parseInt(select.value) : null;
+        }
+        
+        if (nuevoProvId && !isNaN(nuevoProvId)) {
+            const item = carrito[itemIndexCambiarProveedor];
+            item.proveedor_id = nuevoProvId;
+            const contactoObj = todosLosContactos.find(c => c.id === nuevoProvId);
+            if (contactoObj) {
+                item.proveedor_nombre = contactoObj.nombre;
+            } else if (ts && ts.options[String(nuevoProvId)]) {
+                const optText = ts.options[String(nuevoProvId)].text || '';
+                item.proveedor_nombre = optText.split(' (')[0] || ('Proveedor ID ' + nuevoProvId);
+            } else {
+                item.proveedor_nombre = 'Proveedor ID ' + nuevoProvId;
+            }
+            
+            renderizarCarrito();
+            
+            const modalEl = document.getElementById('modalCambiarProveedor');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                if (modal) modal.hide();
+            }
+        } else {
+            alert("Por favor seleccione un proveedor válido.");
+        }
+    };
+
+    window.actualizarCantidad = function(index, nuevaCantidad) {
+        const item = carrito[index];
+        const cant = parseInt(nuevaCantidad);
+        if (cant > 0 && ((MODULO_DROPSHIPPING_ACTIVO && item.es_dropshipping) || cant <= item.stock)) {
+            item.cantidad = cant;
+        } else {
+            alert("Cantidad inválida o superior al stock disponible.");
+        }
+        renderizarCarrito();
+    };
+
+    window.actualizarCostoItem = function(index, nuevoCosto) {
+        const item = carrito[index];
+        const costo = parseFloat(nuevoCosto);
+        if (!isNaN(costo) && costo >= 0) {
+            item.costo = costo;
+            if (item.costo > 0) {
+                item.margen = ((item.precio - item.costo) / item.costo) * 100;
+            } else {
+                item.margen = 100;
+            }
+        }
+        renderizarCarrito();
+    };
+
+    window.actualizarMargen = function(index, nuevoMargen) {
+        const item = carrito[index];
+        const margen = parseFloat(nuevoMargen);
+        if (!isNaN(margen) && item.costo > 0) {
+            item.margen = margen;
+            item.precio = item.costo + (item.costo * margen / 100);
+        }
+        renderizarCarrito();
+    };
+
+    window.actualizarPrecioVenta = function(index, nuevoPrecio) {
+        const item = carrito[index];
+        const precio = parseFloat(nuevoPrecio);
+        if (!isNaN(precio) && precio >= 0) {
+            item.precio = precio;
+            if (item.costo > 0) {
+                item.margen = ((precio - item.costo) / item.costo) * 100;
+            } else {
+                item.margen = 100;
+            }
+        }
+        renderizarCarrito();
+    };
+
+    window.eliminarDelCarrito = function(index) {
+        carrito.splice(index, 1);
+        renderizarCarrito();
+    };
+
+    // Logica del Modal de Pago y Múltiples Pagos
+    let pagos = [];
+    const pagoTipo = document.getElementById('pago_tipo');
+    const opcionesCredito = document.getElementById('opcionesCredito');
+    const pagoMetodo = document.getElementById('pago_metodo');
+    const btnConfirmar = document.getElementById('btnConfirmarVentaDefinitiva');
+
+    
+    window.setTasaVentas = function(tasa, nombre) {
+        document.getElementById('pago_tasa_ms').value = tasa.toFixed(4);
+        window.monedaTasaUsada = nombre;
+        document.getElementById('lblCalcMs').innerHTML = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa ' + nombre + ')';
+        calcularMsDesdeUsdVentas();
+        
+        const totalUsdStr = document.getElementById('totalCobrar').getAttribute('data-usd');
+        if (totalUsdStr) {
+            const totalUsd = parseFloat(totalUsdStr);
+            const totalBs = totalUsd * tasa;
+            const simCobro = window.simboloMonedaVenta || '$ '; document.getElementById('modalTotalCobrar').innerHTML = `${simCobro}${totalUsd.toFixed(2)} <br><small class="text-success fs-5">${totalBs.toFixed(2)} Bs.</small>`;
+        }
+    };
+
+    window.calcularUsdDesdeMsVentas = function() {
+        const montoMs = parseFloat(document.getElementById('pago_monto_ms').value) || 0;
+        const tasa = parseFloat(document.getElementById('pago_tasa_ms').value) || 1;
+        const usd = montoMs / tasa;
+        document.getElementById('pago_monto').value = usd.toFixed(2);
+    };
+
+    window.calcularMsDesdeUsdVentas = function() {
+        const divCalc = document.getElementById('divCalculadoraMs');
+        if (divCalc.style.display !== 'none') {
+            const montoUsd = parseFloat(document.getElementById('pago_monto').value) || 0;
+            const tasa = parseFloat(document.getElementById('pago_tasa_ms').value) || 1;
+            document.getElementById('pago_monto_ms').value = (montoUsd * tasa).toFixed(2);
+        }
+    };
+
+    document.getElementById('pago_metodo').addEventListener('change', function() {
+        const metodo = this.value;
+        const divCalc = document.getElementById('divCalculadoraMs');
+        
+        let requiereCalc = false;
+        let lblCalc = '';
+        let lblMonto = '';
+        let lblTasa = '';
+        let tasaAplicar = 1;
+
+        if (metodo.includes('Pago Móvil') || metodo.includes('Transferencia') || metodo.includes('Punto de Venta') || metodo.includes('BCV')) {
+            requiereCalc = true;
+            lblCalc = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa BCV)';
+            window.monedaTasaUsada = 'BCV';
+            lblMonto = 'Monto a Pagar en Bs.';
+            lblTasa = 'Tasa Utilizada (Bs/$)';
+            tasaAplicar = typeof TASA_BCV !== 'undefined' ? TASA_BCV : 1;
+        } else if (metodo.includes('EUR') || metodo.includes('Euro')) {
+            requiereCalc = true;
+            lblCalc = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa Euro)';
+            window.monedaTasaUsada = 'Euro';
+            lblMonto = 'Monto a Pagar en Bs.';
+            lblTasa = 'Tasa Utilizada (Bs/$)';
+            tasaAplicar = typeof TASA_EURO !== 'undefined' ? TASA_EURO : 1;
+        } else if (metodo.includes('USDT')) {
+            requiereCalc = true;
+            lblCalc = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa USDT)';
+            window.monedaTasaUsada = 'USDT';
+            lblMonto = 'Monto a Pagar en Bs.';
+            lblTasa = 'Tasa Utilizada (Bs/$)';
+            tasaAplicar = typeof TASA_USDT !== 'undefined' ? TASA_USDT : 1;
+        }
+
+        if (requiereCalc) {
+            divCalc.style.display = 'block';
+            document.getElementById('lblCalcMs').innerHTML = lblCalc;
+            document.getElementById('lblMontoCalcMs').innerText = lblMonto;
+            // document.getElementById('lblTasaCalcMs').innerText = lblTasa;
+            document.getElementById('pago_tasa_ms').value = tasaAplicar.toFixed(4);
+            
+            // Convertir lo que ya está en el campo USD, o si está vacío, usar el saldo restante
+            let montoUsd = parseFloat(document.getElementById('pago_monto').value);
+            if (isNaN(montoUsd) || montoUsd === 0) {
+                const totalPagado = pagos.reduce((sum, p) => sum + p.monto, 0);
+                const totalMonto = parseFloat(document.getElementById('totalCobrar').getAttribute('data-usd')) || 0;
+                let resta = totalMonto - totalPagado;
+                if (resta < 0) resta = 0;
+                montoUsd = resta;
+            }
+            if (montoUsd > 0) {
+                let ms = montoUsd * tasaAplicar;
+                document.getElementById('pago_monto_ms').value = ms.toFixed(2);
+                document.getElementById('pago_monto').value = montoUsd.toFixed(2);
+            }
+            
+            // Actualizar total a cobrar en la cabecera
+            const totalUsdStr = document.getElementById('totalCobrar').getAttribute('data-usd');
+            if (totalUsdStr) {
+                const totalUsd = parseFloat(totalUsdStr);
+                const totalBs = totalUsd * tasaAplicar;
+                const simCobro = window.simboloMonedaVenta || '$ '; document.getElementById('modalTotalCobrar').innerHTML = `${simCobro}${totalUsd.toFixed(2)} <br><small class="text-success fs-5">${totalBs.toFixed(2)} Bs.</small>`;
+            }
+        } else {
+            divCalc.style.display = 'none';
+            document.getElementById('pago_monto_ms').value = '';
+            
+            // Si es Zelle u otro, regresar el total a la tasa oficial BCV
+            const totalUsdStr = document.getElementById('totalCobrar').getAttribute('data-usd');
+            if (totalUsdStr) {
+                const totalUsd = parseFloat(totalUsdStr);
+                const tasaOficial = typeof TASA_BCV !== 'undefined' ? TASA_BCV : 1;
+                const totalBs = totalUsd * tasaOficial;
+                const simCobro = window.simboloMonedaVenta || '$ '; document.getElementById('modalTotalCobrar').innerHTML = `${simCobro}${totalUsd.toFixed(2)} <br><small class="text-success fs-5">${totalBs.toFixed(2)} Bs.</small>`;
+            }
+        }
+        verificarFugaMargen();
+    });
+    
+    pagoTipo.addEventListener('change', (e) => {
+        if (e.target.value === 'Crédito') {
+            opcionesCredito.style.display = 'block';
+        } else {
+            opcionesCredito.style.display = 'none';
+        }
+        validarBotonesPago();
+    });
+
+    pagoMetodo.addEventListener('change', (e) => {
+        const met = e.target.value;
+        const ref = document.getElementById('divReferencia');
+        const orig = document.getElementById('divBancoOrigen');
+        const dest = document.getElementById('divBancoDestino');
+        
+        ref.style.display = 'none';
+        orig.style.display = 'none';
+        dest.style.display = 'none';
+
+        const esConRef = met.includes('Zelle') || met.includes('Pago Móvil') || met.includes('Transferencia') || met.includes('Punto de Venta') || met.includes('USDT');
+        if (esConRef) {
+            ref.style.display = 'block';
+        }
+        const esConBanco = met.includes('Pago Móvil') || met.includes('Transferencia');
+        if (esConBanco) {
+            orig.style.display = 'block';
+            dest.style.display = 'block';
+        }
+    });
+
+    function actualizarFaltaPagar() {
+        const totalPagado = pagos.reduce((sum, p) => sum + p.monto, 0);
+        const totalMonto = parseFloat(document.getElementById('totalCobrar').getAttribute('data-usd')) || 0;
+        let resta = totalMonto - totalPagado;
+        if (resta < 0) resta = 0;
+        document.getElementById('lblFaltaPagar').innerText = '$' + resta.toFixed(2);
+        validarBotonesPago();
+        return resta;
+    }
+
+    function validarBotonesPago() {
+        const totalPagado = pagos.reduce((sum, p) => sum + p.monto, 0);
+        const totalMonto = parseFloat(document.getElementById('totalCobrar').getAttribute('data-usd')) || 0;
+        const esCredito = document.getElementById('pago_tipo').value === 'Crédito';
+
+        if (esCredito) {
+            btnConfirmar.disabled = false; // Siempre puede confirmar un crédito
+        } else {
+            btnConfirmar.disabled = (totalPagado < totalMonto - 0.01); // Tolerancia centavos
+        }
+    }
+
+    window.eliminarPago = function(index) {
+        pagos.splice(index, 1);
+        renderizarPagos();
+    };
+
+    function renderizarPagos() {
+        const listaUI = document.getElementById('listaPagosUI');
+        listaUI.innerHTML = '';
+        pagos.forEach((p, i) => {
+            listaUI.innerHTML += `
+                <li class="list-group-item d-flex justify-content-between align-items-center p-2">
+                    <div>
+                        <strong class="text-success">$${p.monto.toFixed(2)}</strong> - ${p.metodo}
+                        <small class="d-block text-muted" style="font-size:0.75rem;">
+                            ${p.referencia ? 'Ref: '+p.referencia : ''} ${p.banco_origen ? '| B.Ori: '+p.banco_origen : ''} ${p.banco_destino ? '| B.Des: '+p.banco_destino : ''}
+                        </small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="eliminarPago(${i})"><i class="bi bi-x-circle"></i></button>
+                </li>
+            `;
+        });
+        actualizarFaltaPagar();
+    }
+
+    document.getElementById('btnAgregarPago').addEventListener('click', () => {
+        const monto = parseFloat(document.getElementById('pago_monto').value);
+        if (isNaN(monto) || monto <= 0) return alert("Ingrese un monto válido.");
+        
+        let tasaVal = null;
+        let monedaVal = null;
+        if (document.getElementById('divCalculadoraMs').style.display !== 'none') {
+            tasaVal = document.getElementById('pago_tasa_ms').value;
+            monedaVal = window.monedaTasaUsada || 'BCV';
+        }
+
+        pagos.push({
+            metodo: document.getElementById('pago_metodo').value,
+            monto: monto,
+            referencia: document.getElementById('pago_referencia').value,
+            banco_origen: document.getElementById('pago_banco_origen').value,
+            banco_destino: document.getElementById('pago_banco_destino').value,
+            tasa_usada: tasaVal,
+            moneda_tasa: monedaVal
+        });
+        
+        document.getElementById('pago_monto').value = '';
+        document.getElementById('pago_referencia').value = '';
+        renderizarPagos();
+    });
+
+    window.actualizarDescuento = function(index, nuevoDesc) {
+        const item = carrito[index];
+        let desc = parseFloat(nuevoDesc);
+        if (isNaN(desc)) desc = 0;
+        // Se acota al rango declarado en el input (min="0" max="100"): un valor
+        // negativo se convertiria en un recargo encubierto sobre el precio.
+        desc = Math.min(Math.max(desc, 0), 100);
+        item.descuento = desc;
+
+        // El descuento se aplica sobre el precio de la lista activa (precio_original),
+        // no sobre el precio ya descontado, para que no se acumule al reescribirlo.
+        let precioBase = parseFloat(item.precio_original || item.precio);
+        item.precio = precioBase * (1 - (desc / 100));
+        
+        if (item.costo > 0) {
+            item.margen = ((item.precio - item.costo) / item.costo) * 100;
+        }
+        renderizarCarrito();
+    };
+
+    // 4. Procesar la venta
+    document.getElementById('btnCompletarVenta').addEventListener('click', () => {
+        // Validar formulario de cliente
+        const cliente_nombre = document.getElementById('cliente_nombre').value;
+        const vendedor_nombre = document.getElementById('vendedor_nombre').value;
+        
+        if (!cliente_nombre || !vendedor_nombre) {
+            alert("Por favor ingrese el Nombre del Cliente y el Nombre del Vendedor.");
+            return;
+        }
+        
+        // Mostrar Modal de Pago
+        document.getElementById('modalTotalCobrar').innerHTML = document.getElementById('totalCobrar').innerHTML;
+        
+        // Reset modal state
+        pagos = [];
+        renderizarPagos();
+
+        // 1. Sugerir método de pago según lista de precios activa
+        sugerirMetodoPagoSegunLista();
+        
+        // 2. Autocompletar el total si no hay pagos
+        const totalNum = parseFloat(document.getElementById('totalCobrar').getAttribute('data-usd')) || 0;
+        if (!isNaN(totalNum)) {
+            document.getElementById('pago_monto').value = totalNum.toFixed(2);
+            setTimeout(() => {
+                document.getElementById('pago_metodo').dispatchEvent(new Event('change'));
+                verificarFugaMargen();
+            }, 100);
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalProcesarPago'));
+        modal.show();
+    });
+
+    document.getElementById('btnConfirmarVentaDefinitiva').addEventListener('click', () => {
+        const cliente_nombre = document.getElementById('cliente_nombre').value;
+        const vendedor_nombre = document.getElementById('vendedor_nombre').value;
+        const btn = document.getElementById('btnConfirmarVentaDefinitiva');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...';
+
+        const tipoDescGlobal = document.getElementById('tipoDescGlobal') ? document.getElementById('tipoDescGlobal').value : '%';
+        const valorDescGlobal = document.getElementById('valorDescGlobal') ? parseFloat(document.getElementById('valorDescGlobal').value) || 0 : 0;
+        let descuentoGlobalAplicado = 0;
+        if (tipoDescGlobal === '%') {
+            descuentoGlobalAplicado = totalGeneral * (valorDescGlobal / 100);
+        } else {
+            descuentoGlobalAplicado = valorDescGlobal;
+        }
+        if (descuentoGlobalAplicado > totalGeneral) {
+            descuentoGlobalAplicado = totalGeneral;
+        }
+        
+        const baseImponible = totalGeneral - descuentoGlobalAplicado;
+        const igtf = baseImponible * 0.03;
+        const subTotal = baseImponible + igtf;
+        const iva = baseImponible * 0.16;
+        const totalPagar = subTotal + iva;
+
+        const payload = {
+            cliente: {
+                nombre: cliente_nombre,
+                identificacion: document.getElementById('cliente_identificacion').value,
+                direccion: document.getElementById('cliente_direccion').value,
+                ciudad: document.getElementById('cliente_ciudad').value,
+                telefono: document.getElementById('cliente_telefono').value,
+                vendedor: vendedor_nombre,
+                observaciones: document.getElementById('observaciones').value,
+                total: totalPagar.toFixed(2),
+                descuento_global: descuentoGlobalAplicado.toFixed(2),
+                lista_precio_id: (document.getElementById('selectorListaPrecios') && document.getElementById('selectorListaPrecios').value !== 'base') ? document.getElementById('selectorListaPrecios').value : null
+            },
+            carrito: carrito.map(item => ({
+                ...item,
+                es_dropshipping: MODULO_DROPSHIPPING_ACTIVO ? Boolean(item.es_dropshipping) : false
+            })),
+            pago: {
+                tipo: document.getElementById('pago_tipo').value,
+                dias_plazo: document.getElementById('pago_dias').value,
+                pagos: pagos
+            }
+        };
+
+        fetch('/ventas/registrar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Redirigir a la vista de recibo (guia de despacho)
+                window.location.href = "/ventas/recibo/" + data.referencia;
+            } else {
+                alert("Error: " + data.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Confirmar y Generar Guía';
+            }
+        })
+        .catch(error => {
+            alert("Error de conexión al procesar la venta.");
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Confirmar y Generar Guía';
+        });
+    });
+});
+</script>
+{% endblock %}

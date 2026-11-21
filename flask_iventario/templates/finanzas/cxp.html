@@ -1,0 +1,671 @@
+{% extends 'base.html' %}
+
+{% block title %}Cuentas por Pagar (Proveedores) - SummanPOS{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-7">
+        <h2 class="text-danger fw-bold m-0"><i class="bi bi-journal-arrow-up me-2"></i> Cuentas por Pagar (Proveedores)</h2>
+        <p class="text-muted mb-0">Seguimiento de facturas y órdenes pendientes de pago a nuestros proveedores.</p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0">
+        <a href="/finanzas/cxc" class="btn btn-outline-success me-2"><i class="bi bi-person-check-fill"></i> Ver CxC (Clientes)</a>
+        <a href="/compras/crear" class="btn btn-danger fw-bold"><i class="bi bi-plus-circle"></i> Nueva Orden de Compra</a>
+    </div>
+</div>
+
+<!-- Tarjetas de Resumen Financiero -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-danger text-white p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-white-50 text-uppercase fw-bold mb-1">Total por Pagar</h6>
+                    <h3 class="fw-bold m-0">${{ "{:,.2f}".format(total_por_pagar_usd) }}</h3>
+                </div>
+                <div class="bg-white bg-opacity-25 rounded-circle p-2 px-3">
+                    <i class="bi bi-currency-dollar fs-2"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-white border-start border-4 border-primary p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted text-uppercase fw-bold mb-1">
+                        Tasa Dólar BCV 
+                        <a href="/bcv/actualizar" class="text-primary ms-1" title="Actualizar BCV"><i class="bi bi-arrow-clockwise"></i></a>
+                    </h6>
+                    <h4 class="fw-bold text-primary m-0">Bs. {{ "{:,.2f}".format(total_por_pagar_usd * tasa_bcv) }}</h4>
+                    <small class="text-muted">Tasa: Bs. {{ "{:,.2f}".format(tasa_bcv) }}</small>
+                </div>
+                <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-2 px-3">
+                    <i class="bi bi-bank fs-3"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-white border-start border-4 border-info p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted text-uppercase fw-bold mb-1">
+                        Tasa Euro BCV
+                        <a href="/bcv/actualizar" class="text-info ms-1" title="Actualizar BCV"><i class="bi bi-arrow-clockwise"></i></a>
+                    </h6>
+                    <h4 class="fw-bold text-info m-0">Bs. {{ "{:,.2f}".format(total_por_pagar_usd * tasa_euro) }}</h4>
+                    <small class="text-muted">Tasa Euro: Bs. {{ "{:,.2f}".format(tasa_euro) }}</small>
+                </div>
+                <div class="bg-info bg-opacity-10 text-info rounded-circle p-2 px-3">
+                    <i class="bi bi-currency-euro fs-3"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-white border-start border-4 border-warning p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted text-uppercase fw-bold mb-1">
+                        Tasa USDT
+                        <a href="/bcv/actualizar_usdt" class="text-warning ms-1" title="Actualizar USDT"><i class="bi bi-arrow-clockwise"></i></a>
+                    </h6>
+                    <h4 class="fw-bold text-dark m-0">Bs. {{ "{:,.2f}".format(total_por_pagar_usd * tasa_usdt) }}</h4>
+                    <small class="text-muted">Tasa: Bs. {{ "{:,.2f}".format(tasa_usdt) }}</small>
+                </div>
+                <div class="bg-warning bg-opacity-10 text-warning rounded-circle p-2 px-3">
+                    <i class="bi bi-currency-bitcoin fs-3"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Cuentas por Pagar -->
+<div class="card border-0 shadow rounded-4 overflow-hidden">
+    <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+        <h5 class="fw-bold text-dark m-0"><i class="bi bi-truck me-2"></i> Órdenes de Compra a Crédito</h5>
+        <form method="GET" action="{{ url_for('finanzas.cuentas_por_pagar') }}" class="d-flex w-100 align-items-center">
+            <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm me-2" style="max-width: 200px;" placeholder="Proveedor, orden...">
+            
+            <select name="estado" class="form-select form-select-sm me-2" style="max-width: 150px;" onchange="this.form.submit()">
+                <option value="pendientes" {% if estado == 'pendientes' %}selected{% endif %}>Pendientes</option>
+                <option value="parciales" {% if estado == 'parciales' %}selected{% endif %}>Parciales</option>
+                <option value="pagadas" {% if estado == 'pagadas' %}selected{% endif %}>Pagadas</option>
+                <option value="todas" {% if estado == 'todas' %}selected{% endif %}>Todas</option>
+            </select>
+
+            <div class="input-group input-group-sm me-2" style="max-width: 250px;">
+                <input type="date" class="form-control" name="fecha_inicio" value="{{ fecha_inicio }}" title="Fecha de inicio">
+                <span class="input-group-text px-1">a</span>
+                <input type="date" class="form-control" name="fecha_fin" value="{{ fecha_fin }}" title="Fecha de fin">
+            </div>
+            
+            <button type="submit" class="btn btn-sm btn-primary text-nowrap"><i class="bi bi-search"></i> Buscar</button>
+            {% if q or fecha_inicio or fecha_fin or estado != 'pendientes' %}
+            <a href="{{ url_for('finanzas.cuentas_por_pagar') }}" class="btn btn-sm btn-outline-secondary ms-1" title="Limpiar"><i class="bi bi-x"></i></a>
+            {% endif %}
+        </form>
+    </div>
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-hover align-middle mb-0" id="tablaCxP">
+            <thead class="bg-light text-dark fw-bold border-bottom">
+                <tr>
+                    <th>Proveedor / Contacto</th>
+                    <th>Orden de Compra</th>
+                    <th>Emisión / Vencimiento</th>
+                    <th class="text-end">Total Orden</th>
+                    <th class="text-center" style="width: 140px;">Progreso Pago</th>
+                    <th class="text-end">Saldo Pendiente</th>
+                    <th class="text-center">Estado / Mora</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if lista_cxp %}
+                {% for item in lista_cxp %}
+                <tr>
+                    <td>
+                        <div class="fw-bold text-dark">{{ item.proveedor_nombre }}</div>
+                        {% if item.proveedor_telefono %}
+                        <small class="text-muted"><i class="bi bi-telephone me-1"></i> {{ item.proveedor_telefono }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.referencia.startswith('DROP-') %}
+                            <a href="/dropshipping/recibo_ref/{{ item.referencia }}" target="_blank" class="badge bg-danger text-decoration-none fs-6">
+                                {{ item.referencia }} <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        {% else %}
+                            <a href="/compras/recibo/{{ item.referencia }}" target="_blank" class="badge bg-danger text-decoration-none fs-6">
+                                {{ item.referencia }} <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div><i class="bi bi-calendar-event text-muted me-1"></i> {{ item.fecha.strftime('%d/%m/%Y') if item.fecha else 'N/A' }}</div>
+                        {% if item.fecha_vencimiento %}
+                        <small class="text-muted"><i class="bi bi-clock-history me-1"></i> Vence: {{ item.fecha_vencimiento.strftime('%d/%m/%Y') }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-bold text-dark">
+                        ${{ "{:,.2f}".format(item.total_compra_usd) }}
+                    </td>
+                    <td class="text-center">
+                        <div class="progress" style="height: 16px;">
+                            <div class="progress-bar bg-success fw-bold" role="progressbar" style="width: {{ item.porcentaje_pagado }}%; font-size: 10px;" aria-valuenow="{{ item.porcentaje_pagado }}" aria-valuemin="0" aria-valuemax="100">
+                                {{ item.porcentaje_pagado }}%
+                            </div>
+                        </div>
+                        <small class="text-muted" style="font-size: 11px;">Pagado: ${{ "{:,.2f}".format(item.monto_abonado_usd) }}</small>
+                    </td>
+                    <td class="text-end">
+                        <div class="fw-bold text-danger fs-6">${{ "{:,.2f}".format(item.saldo_pendiente_usd) }}</div>
+                        {% if item.saldo_pendiente_usd > 0 %}
+                        <div class="mt-1 d-flex flex-column align-items-end gap-1" style="font-size: 11px; line-height: 1.2;">
+                            {% if tasa_bcv > 0 %}
+                            <div class="text-nowrap" title="Tasa Dólar BCV: Bs. {{ "{:,.2f}".format(tasa_bcv) }}">
+                                <span class="badge text-white px-1 py-0 me-1" style="background-color: #4B2C7F; font-size: 9px; font-weight: 600;">BCV</span>
+                                <span class="text-dark fw-semibold">Bs. {{ "{:,.2f}".format(item.saldo_pendiente_usd * tasa_bcv) }}</span>
+                            </div>
+                            {% endif %}
+                            {% if tasa_usdt > 0 %}
+                            <div class="text-nowrap" title="Tasa USDT Binance: Bs. {{ "{:,.2f}".format(tasa_usdt) }}">
+                                <span class="badge text-white px-1 py-0 me-1" style="background-color: #ED8A00; font-size: 9px; font-weight: 600;">USDT</span>
+                                <span class="text-dark fw-semibold">Bs. {{ "{:,.2f}".format(item.saldo_pendiente_usd * tasa_usdt) }}</span>
+                            </div>
+                            {% endif %}
+                            {% if tasa_euro > 0 %}
+                            <div class="text-nowrap" title="Tasa Euro BCV: Bs. {{ "{:,.2f}".format(tasa_euro) }}">
+                                <span class="badge text-white px-1 py-0 me-1" style="background-color: #0097A9; font-size: 9px; font-weight: 600;">EUR</span>
+                                <span class="text-dark fw-semibold">Bs. {{ "{:,.2f}".format(item.saldo_pendiente_usd * tasa_euro) }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if item.dias_vencido > 0 %}
+                        <span class="badge bg-danger p-2"><i class="bi bi-exclamation-triangle-fill me-1"></i> {{ item.dias_vencido }} días vencido</span>
+                        {% elif item.fecha_vencimiento %}
+                        <span class="badge bg-success p-2"><i class="bi bi-check-circle-fill me-1"></i> Al día</span>
+                        {% else %}
+                        <span class="badge bg-secondary p-2">Sin Plazo</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-danger btn-sm fw-bold me-1 mb-1" onclick="abrirModalAbono({{ item.id }}, '{{ item.referencia }}', '{{ item.proveedor_nombre }}', {{ item.saldo_pendiente_usd }}, '{{ item.tipo_orden }}')">
+                            <i class="bi bi-plus-circle"></i> Pagar Abono
+                        </button>
+                        <button class="btn btn-outline-info btn-sm me-1 mb-1" onclick="abrirModalHistorial({{ item.id }}, '{{ item.referencia }}', '{{ item.tipo_orden }}', {{ item.total_compra_usd }}, {{ item.monto_abonado_usd }}, {{ item.saldo_pendiente_usd }})">
+                            <i class="bi bi-eye"></i> Historial
+                        </button>
+                    </td>
+                </tr>
+
+                <!-- Script local para guardar historial de esta orden -->
+                <script>
+                    window['historial_orden_' + {{ item.id }} + '_' + '{{ item.tipo_orden }}'] = [
+                        {% for pago in item.pagos %}
+                        {
+                            fecha: "{{ pago.fecha.strftime('%d/%m/%Y %H:%M') if pago.fecha else '' }}",
+                            monto: {{ pago.monto }},
+                            metodo: "{{ pago.metodo }}",
+                            referencia_pago: "{{ pago.referencia_pago or 'N/A' }}",
+                            tasa_usada: {{ pago.tasa_usada if pago.tasa_usada else 'null' }},
+                            moneda_tasa: "{{ pago.moneda_tasa or '' }}",
+                            monto_moneda: {{ pago.monto_moneda if pago.monto_moneda else 'null' }}
+                        },
+                        {% endfor %}
+                    ];
+                </script>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-muted">
+                        <i class="bi bi-check-circle-fill fs-1 d-block mb-2 text-success"></i>
+                        <h5>¡No hay cuentas por pagar pendientes!</h5>
+                        <p class="m-0">No le debes dinero a ningún proveedor actualmente.</p>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+        <!-- Paginación -->
+        {% if paginacion.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4 d-flex justify-content-center">
+            <ul class="pagination pagination-sm shadow-sm">
+                <li class="page-item {% if not paginacion.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('finanzas.cuentas_por_pagar', page=paginacion.prev_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado=estado) }}" tabindex="-1">Anterior</a>
+                </li>
+                
+                {% for page_num in paginacion.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        {% if paginacion.page == page_num %}
+                            <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                        {% else %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('finanzas.cuentas_por_pagar', page=page_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado=estado) }}">{{ page_num }}</a></li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                <li class="page-item {% if not paginacion.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('finanzas.cuentas_por_pagar', page=paginacion.next_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado=estado) }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+</div>
+
+<!-- Modal Registrar Abono a Proveedor -->
+<div class="modal fade" id="modalAbono" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <form id="formAbono" method="POST" action="">
+          <input type="hidden" name="tipo_orden" id="modalTipoOrden" value="">
+          <input type="hidden" name="moneda_tasa" id="moneda_tasa_input" value="BCV">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i> Registrar Abono a Proveedor</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-4">
+            <div class="mb-3 bg-light p-3 rounded border">
+                <small class="text-muted d-block">Orden de Compra: <strong id="modalRefOrden" class="text-dark"></strong></small>
+                <small class="text-muted d-block">Proveedor: <strong id="modalProveedorNombre" class="text-dark"></strong></small>
+                <div class="mt-2 text-end">
+                    <span class="text-muted">Saldo Pendiente actual:</span>
+                    <h4 class="text-danger fw-bold m-0" id="modalSaldoPendiente">$0.00</h4>
+                    <small class="text-primary fw-bold" id="modalSaldoPendienteBs">Bs. 0.00</small>
+                </div>
+            </div>
+
+            <!-- Calculadora en Bolívares opcional -->
+            <div class="card p-3 mb-3 border-start border-4 border-info bg-light" id="divCalculadoraAbono" style="display: none;">
+                <label class="form-label fw-bold text-info" id="lblCalcAbono"><i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa BCV)</label>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted" id="lblMontoCalcAbono">Monto a Pagar en Bs.</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="montoBs" name="monto_moneda" placeholder="0.00" oninput="calcularUsdDesdeBs()">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted d-flex justify-content-between align-items-center w-100" id="lblTasaCalcAbono" style="margin-bottom: 2px;">
+                            <span>Tasa Utilizada</span>
+                            <div>
+                                <span class="badge bg-primary rounded-pill cursor-pointer" style="cursor:pointer; font-size:0.65rem;" onclick="setTasa(tasaBcvActiva, 'BCV')" title="Usar BCV">BCV</span>
+                                <span class="badge bg-warning text-dark rounded-pill cursor-pointer" style="cursor:pointer; font-size:0.65rem;" onclick="setTasa(tasaUsdtActiva, 'USDT')" title="Usar USDT">USDT</span>
+                                <span class="badge bg-info text-dark rounded-pill cursor-pointer" style="cursor:pointer; font-size:0.65rem;" onclick="setTasa(tasaEuroActiva, 'Euro')" title="Usar Euro">EUR</span>
+                            </div>
+                        </label>
+                        <input type="number" step="0.0001" min="0.0001" class="form-control form-control-sm" id="tasaAplicada" name="tasa_usada" value="{{ tasa_bcv }}" oninput="calcularBsDesdeUsdAbono()">
+                    </div>
+                </div>
+                <small class="text-muted mt-1" style="font-size: 11px;">Al escribir en Bolívares, se actualizará automáticamente el valor abonado en USD.</small>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label fw-bold">Monto del Abono en Dólares (USD)</label>
+                <input type="number" step="0.01" min="0.01" class="form-control form-control-lg fw-bold text-danger" id="montoAbono" name="monto" required placeholder="0.00" oninput="calcularBsDesdeUsdAbono()">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Método de Pago</label>
+                <select class="form-select form-select-lg" name="metodo" id="abono_metodo" required>
+                    <option value="Transferencia Bancaria (Bs)">Transferencia Bancaria (Bs)</option>
+                    <option value="Pago Móvil (Bs)">Pago Móvil (Bs)</option>
+                    <option value="Efectivo USD">Efectivo USD</option>
+                    <option value="Binance USDT">Binance USDT</option>
+                    <option value="Efectivo EUR">Efectivo EUR</option>
+                    <option value="Zelle">Zelle</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Referencia / Comprobante (Opcional)</label>
+                <input type="text" class="form-control" name="referencia_pago" placeholder="Ej: Transf # 987654 ó Ref 123456">
+            </div>
+          </div>
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-danger fw-bold px-4"><i class="bi bi-check-lg"></i> Guardar Pago</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Historial de Abonos -->
+<div class="modal fade" id="modalHistorial" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i> Historial de Pagos Realizados - <span id="historialRef"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <!-- Resumen de Totales en el Modal -->
+        <div class="p-3 bg-light border-bottom d-flex justify-content-around text-center">
+            <div>
+                <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 11px;">Total Orden</small>
+                <span class="fs-6 fw-bold text-dark" id="historialTotalOrden">$0.00</span>
+            </div>
+            <div class="border-start ps-3">
+                <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 11px;">Total Pagado</small>
+                <span class="fs-6 fw-bold text-success" id="historialTotalAbonado">$0.00</span>
+            </div>
+            <div class="border-start ps-3">
+                <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 11px;">Saldo Pendiente</small>
+                <span class="fs-6 fw-bold" id="historialSaldoPendiente">$0.00</span>
+            </div>
+        </div>
+
+        <table class="table table-striped align-middle mb-0">
+            <thead class="bg-light">
+                <tr>
+                    <th>Fecha y Hora</th>
+                    <th>Método</th>
+                    <th>Referencia</th>
+                    <th class="text-end">Monto Pagado ($)</th>
+                </tr>
+            </thead>
+            <tbody id="cuerpoHistorial">
+                <!-- Se llena dinámicamente con JS -->
+            </tbody>
+            <tfoot id="pieHistorial" class="bg-light fw-bold border-top">
+                <!-- Se llena dinámicamente con JS -->
+            </tfoot>
+        </table>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    const tasaBcvActiva = {{ tasa_bcv }};
+    const tasaEuroActiva = {{ tasa_euro if tasa_euro else 1 }};
+    const tasaUsdtActiva = {{ tasa_usdt if tasa_usdt else 1 }};
+
+    function setTasa(tasa, nombre) {
+        document.getElementById('tasaAplicada').value = tasa.toFixed(4);
+        document.getElementById('moneda_tasa_input').value = nombre;
+        document.getElementById('lblCalcAbono').innerHTML = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa ' + nombre + ')';
+        calcularBsDesdeUsdAbono();
+        
+        // Update header total
+        const saldoUsdStr = document.getElementById('modalSaldoPendiente').getAttribute('data-usd');
+        const saldoUsd = parseFloat(saldoUsdStr) || 0;
+        if (saldoUsd > 0) {
+            const totalBs = saldoUsd * tasa;
+            document.getElementById('modalSaldoPendienteBs').innerText = "Bs. " + totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " (Calculadora rápida (Tasa " + nombre + "))";
+        }
+    }
+
+    function calcularUsdDesdeBs() {
+        const bs = parseFloat(document.getElementById('montoBs').value) || 0;
+        const tasa = parseFloat(document.getElementById('tasaAplicada').value) || 1;
+        if (bs > 0 && tasa > 0) {
+            const usd = bs / tasa;
+            document.getElementById('montoAbono').value = usd.toFixed(2);
+        }
+    }
+
+    function calcularBsDesdeUsdAbono() {
+        const divCalc = document.getElementById('divCalculadoraAbono');
+        if (divCalc.style.display !== 'none') {
+            const montoUsd = parseFloat(document.getElementById('montoAbono').value) || 0;
+            const tasa = parseFloat(document.getElementById('tasaAplicada').value) || 1;
+            document.getElementById('montoBs').value = (montoUsd * tasa).toFixed(2);
+        }
+    }
+
+    function abrirModalAbono(id, ref, proveedor, saldo, tipoOrden) {
+        document.getElementById('modalTipoOrden').value = tipoOrden;
+        if (tipoOrden === 'dropshipping' || (ref && ref.startsWith('DROP-'))) {
+            document.getElementById('formAbono').action = "/finanzas/cxp_abonar_drop/" + id;
+        } else {
+            document.getElementById('formAbono').action = "/finanzas/cxp/abono/" + id;
+        }
+        document.getElementById('modalRefOrden').innerText = ref;
+        document.getElementById('modalProveedorNombre').innerText = proveedor;
+        document.getElementById('modalSaldoPendiente').innerText = "$" + saldo.toFixed(2);
+        document.getElementById('modalSaldoPendiente').setAttribute('data-usd', saldo.toFixed(2));
+        
+        if (tasaBcvActiva > 0) {
+            const saldoBs = saldo * tasaBcvActiva;
+            document.getElementById('modalSaldoPendienteBs').innerText = "Bs. " + saldoBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " (Tasa BCV hoy)";
+        } else {
+            document.getElementById('modalSaldoPendienteBs').innerText = "";
+        }
+
+        document.getElementById('montoBs').value = "";
+        document.getElementById('tasaAplicada').value = tasaBcvActiva;
+        
+        const montoInput = document.getElementById('montoAbono');
+        montoInput.max = saldo.toFixed(2);
+        montoInput.value = saldo.toFixed(2);
+
+        const modal = new bootstrap.Modal(document.getElementById('modalAbono'));
+        modal.show();
+        setTimeout(() => document.getElementById('abono_metodo').dispatchEvent(new Event('change')), 100);
+    }
+
+    function abrirModalHistorial(id, ref, tipoOrden, totalOrden = 0, totalAbonado = 0, saldoPendiente = 0) {
+        document.getElementById('historialRef').innerText = ref;
+        document.getElementById('historialTotalOrden').innerText = '$' + Number(totalOrden).toFixed(2);
+        document.getElementById('historialTotalAbonado').innerText = '$' + Number(totalAbonado).toFixed(2);
+        
+        const saldoEl = document.getElementById('historialSaldoPendiente');
+        if (Number(saldoPendiente) <= 0.01) {
+            saldoEl.className = 'fs-6 fw-bold text-success';
+            saldoEl.innerHTML = '<span class="badge bg-success">Completamente Pagada ($0.00)</span>';
+        } else {
+            saldoEl.className = 'fs-6 fw-bold text-danger';
+            saldoEl.innerText = '$' + Number(saldoPendiente).toFixed(2);
+        }
+
+        const cuerpo = document.getElementById('cuerpoHistorial');
+        const pie = document.getElementById('pieHistorial');
+        cuerpo.innerHTML = '';
+        pie.innerHTML = '';
+
+        const lista = window['historial_orden_' + id + '_' + tipoOrden] || [];
+        let sumaPagos = 0;
+        let sumaBs = 0;
+
+        if (lista.length === 0) {
+            if (Number(totalAbonado) > 0) {
+                cuerpo.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-muted">
+                            <i class="bi bi-check-circle-fill fs-3 text-success d-block mb-1"></i>
+                            <span class="fw-bold text-dark">Pago Completo Registrado</span><br>
+                            <small class="text-muted">Esta orden fue liquidada en su totalidad ($${Number(totalAbonado).toFixed(2)}) al momento de su creación.</small>
+                        </td>
+                    </tr>
+                `;
+                pie.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-end fw-bold">Total Pagado:</td>
+                        <td class="text-end fw-bold text-success fs-6">$${Number(totalAbonado).toFixed(2)}</td>
+                    </tr>
+                `;
+            } else {
+                cuerpo.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <i class="bi bi-info-circle fs-3 text-warning d-block mb-1"></i>
+                            <span class="fw-bold text-dark">No se han registrado pagos aún</span><br>
+                            <small class="text-danger fw-semibold">Saldo Pendiente: $${Number(saldoPendiente).toFixed(2)}</small>
+                        </td>
+                    </tr>
+                `;
+            }
+        } else {
+            lista.forEach(p => {
+                const montoUsd = Number(p.monto) || 0;
+                sumaPagos += montoUsd;
+                
+                let detalleBs = '';
+                if (p.tasa_usada && Number(p.tasa_usada) > 0) {
+                    const montoBs = (p.monto_moneda && Number(p.monto_moneda) > 0) ? Number(p.monto_moneda) : (montoUsd * Number(p.tasa_usada));
+                    sumaBs += montoBs;
+                    
+                    let etiquetaMoneda = '';
+                    if (p.moneda_tasa && p.moneda_tasa !== 'Tasa' && p.moneda_tasa !== 'null' && p.moneda_tasa !== '') {
+                        etiquetaMoneda = p.moneda_tasa.toUpperCase();
+                    } else {
+                        const met = (p.metodo || '').toUpperCase();
+                        if (met.includes('USDT') || met.includes('BINANCE')) {
+                            etiquetaMoneda = 'USDT';
+                        } else if (met.includes('EUR') || met.includes('EURO')) {
+                            etiquetaMoneda = 'EUR';
+                        } else if (met.includes('BCV') || met.includes('PAGO MÓVIL') || met.includes('PAGO MOVIL') || met.includes('TRANSFERENCIA') || met.includes('BS')) {
+                            etiquetaMoneda = 'BCV';
+                        } else {
+                            const t = Number(p.tasa_usada) || 0;
+                            if (t >= 950) etiquetaMoneda = 'USDT';
+                            else if (t >= 880) etiquetaMoneda = 'EUR';
+                            else etiquetaMoneda = 'BCV';
+                        }
+                    }
+
+                    let colorBadge = '#4B2C7F'; // BCV purple
+                    if (etiquetaMoneda.includes('USDT')) colorBadge = '#ED8A00'; // USDT orange
+                    else if (etiquetaMoneda.includes('EUR')) colorBadge = '#0097A9'; // EUR ocean blue
+
+                    detalleBs = `
+                        <div class="mt-1" style="font-size: 11px;">
+                            <strong class="text-dark">Bs. ${montoBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                            <div class="mt-1">
+                                <span class="badge text-white px-2 py-1" style="background-color: ${colorBadge}; font-size: 10px; font-weight: 600;">
+                                    Tasa ${etiquetaMoneda}: Bs. ${Number(p.tasa_usada).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                cuerpo.innerHTML += `
+                    <tr>
+                        <td>${p.fecha}</td>
+                        <td>
+                            <span class="badge bg-secondary">${p.metodo}</span>
+                        </td>
+                        <td>${p.referencia_pago}</td>
+                        <td class="text-end">
+                            <div class="fw-bold text-success fs-6">$${montoUsd.toFixed(2)}</div>
+                            ${detalleBs}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            pie.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-end fw-bold">Total Abonado Registrado:</td>
+                    <td class="text-end fw-bold text-success fs-6">
+                        $${sumaPagos.toFixed(2)}
+                        ${sumaBs > 0 ? `<div class="text-muted fw-normal mt-1" style="font-size: 11px;">(Total Bs. <strong>${sumaBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>)</div>` : ''}
+                    </td>
+                </tr>
+            `;
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('modalHistorial'));
+        modal.show();
+    }
+
+    document.getElementById('formAbono').addEventListener('submit', function() {
+        const montoAbonoInput = document.getElementById('montoAbono');
+        const montoBsInput = document.getElementById('montoBs');
+        const tasaInput = document.getElementById('tasaAplicada');
+
+        if (montoAbonoInput && montoAbonoInput.value) {
+            montoAbonoInput.value = montoAbonoInput.value.toString().replace(',', '.');
+        }
+        if (tasaInput && tasaInput.value) {
+            tasaInput.value = tasaInput.value.toString().replace(',', '.');
+        }
+        if (montoBsInput && montoBsInput.value) {
+            montoBsInput.value = montoBsInput.value.toString().replace(',', '.');
+        }
+
+        const montoUsd = parseFloat(montoAbonoInput ? montoAbonoInput.value : 0) || 0;
+        const tasa = parseFloat(tasaInput ? tasaInput.value : 1) || 1;
+        if (montoUsd > 0 && tasa > 0 && (!montoBsInput.value || parseFloat(montoBsInput.value) === 0)) {
+            montoBsInput.value = (montoUsd * tasa).toFixed(2);
+        }
+    });
+
+    document.getElementById('abono_metodo').addEventListener('change', function() {
+        const metodo = this.value;
+        const divCalc = document.getElementById('divCalculadoraAbono');
+        const saldoUsdStr = document.getElementById('modalSaldoPendiente').getAttribute('data-usd');
+        const saldoUsd = parseFloat(saldoUsdStr) || 0;
+        
+        let requiereCalc = false;
+        let lblCalc = '';
+        let lblMonto = 'Monto a Pagar en Bs.';
+        let tasaAplicar = 1;
+        let nombreMoneda = 'BCV';
+
+        if (metodo.includes('BCV') || metodo.includes('Pago Móvil') || metodo.includes('Transferencia Bancaria') || metodo.includes('Efectivo Bs')) {
+            requiereCalc = true;
+            lblCalc = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa BCV)';
+            tasaAplicar = typeof tasaBcvActiva !== 'undefined' ? tasaBcvActiva : 1;
+            nombreMoneda = 'BCV';
+        } else if (metodo.includes('EUR') || metodo.includes('Euro')) {
+            requiereCalc = true;
+            lblCalc = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa Euro)';
+            tasaAplicar = typeof tasaEuroActiva !== 'undefined' ? tasaEuroActiva : 1;
+            nombreMoneda = 'Euro';
+        } else if (metodo.includes('USDT')) {
+            requiereCalc = true;
+            lblCalc = '<i class="bi bi-calculator me-1"></i> Calculadora rápida (Tasa USDT)';
+            tasaAplicar = typeof tasaUsdtActiva !== 'undefined' ? tasaUsdtActiva : 1;
+            nombreMoneda = 'USDT';
+        }
+
+        if (requiereCalc) {
+            divCalc.style.display = 'block';
+            document.getElementById('lblCalcAbono').innerHTML = lblCalc;
+            document.getElementById('lblMontoCalcAbono').innerText = lblMonto;
+            document.getElementById('tasaAplicada').value = tasaAplicar.toFixed(4);
+            document.getElementById('moneda_tasa_input').value = nombreMoneda === 'Euro' ? 'EUR' : nombreMoneda;
+            
+            let montoUsd = parseFloat(document.getElementById('montoAbono').value);
+            if (isNaN(montoUsd) || montoUsd === 0) {
+                montoUsd = saldoUsd;
+            }
+            if (montoUsd > 0) {
+                let ms = montoUsd * tasaAplicar;
+                document.getElementById('montoBs').value = ms.toFixed(2);
+                document.getElementById('montoAbono').value = montoUsd.toFixed(2);
+            }
+            
+            // Actualizar total pendiente en bolívares en la cabecera
+            if (saldoUsd > 0) {
+                const totalBs = saldoUsd * tasaAplicar;
+                document.getElementById('modalSaldoPendienteBs').innerText = "Bs. " + totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ` (${lblCalc.replace(/<[^>]*>?/gm, '').trim()})`;
+            }
+        } else {
+            divCalc.style.display = 'none';
+            document.getElementById('montoBs').value = '';
+            
+            if (saldoUsd > 0) {
+                const tasaOficial = typeof tasaBcvActiva !== 'undefined' ? tasaBcvActiva : 1;
+                const totalBs = saldoUsd * tasaOficial;
+                document.getElementById('modalSaldoPendienteBs').innerText = "Bs. " + totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " (Tasa BCV hoy)";
+            }
+        }
+    });
+</script>
+{% endblock %}

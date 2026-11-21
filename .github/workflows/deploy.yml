@@ -1,0 +1,217 @@
+name: Deploy SummanPOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Acción a realizar'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
+          - restart
+      hacer_backup:
+        # Antes se llamaba run_migrations, pero ya no decide si se migra: el
+        # upgrade corre siempre en un deploy. Lo unico que controlaba era el
+        # respaldo, y con el valor por defecto en false los despliegues
+        # migraban la base sin copia previa.
+        description: 'Respaldar la base de datos antes de migrar (recomendado)'
+        required: false
+        type: boolean
+        default: true
+
+# Un solo job por entorno a la vez: dos deploys simultaneos, o un deploy
+# mientras db_migrations.yml corre un upgrade, se pisarian sobre la misma base.
+concurrency:
+  group: summanpos-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, prd]
+    environment:
+      name: ${{ github.ref_name == 'main' && 'prd' || github.ref_name }}
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Definir entorno
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "env_folder=prd" >> $GITHUB_ENV
+          else
+            echo "env_folder=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+        shell: bash
+
+      - name: Preparar Directorio Host
+        run: |
+          mkdir -p /opt/deploy/${{ env.env_folder }}/SummanPOS
+
+          # rsync --delete para TODO el arbol, no solo para las migraciones.
+          # Antes se copiaba con 'cp -r', que no borra: los archivos eliminados
+          # en git se quedaban vivos en el servidor. Eso ya causo el
+          # "Multiple head revisions" de Alembic y se parcheo solo para
+          # migrations/versions, pero templates, rutas y estaticos borrados
+          # seguian acumulandose con el mismo problema esperando a estallar.
+          #
+          # Se excluye .git (el runner ya trae el checkout) y el .env, que lo
+          # genera el paso siguiente a partir de los secrets: sin la exclusion,
+          # rsync lo borraria en cada despliegue por no existir en el origen.
+          echo "Sincronizando el codigo en el servidor..."
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'flask_iventario/.env' \
+            ./ /opt/deploy/${{ env.env_folder }}/SummanPOS/
+        shell: bash
+
+      - name: Validar Permisos
+        if: ${{ inputs.action == 'destroy' }}
+        run: |
+          # Si AUTHORIZED_USERS está vacío, cualquiera puede ejecutar la acción.
+          AUTHORIZED_USERS=""
+          if [ -z "$AUTHORIZED_USERS" ] || [[ " $AUTHORIZED_USERS " =~ " ${{ github.actor }} " ]]; then
+            echo "Usuario ${{ github.actor }} autorizado."
+          else
+            echo "::error::El usuario ${{ github.actor }} no tiene permisos para ejecutar la acción 'destroy'."
+            exit 1
+          fi
+        shell: bash
+
+      - name: Inyectar variables de entorno (.env)
+        run: |
+          cd /opt/deploy/${{ env.env_folder }}/SummanPOS/flask_iventario
+          echo "ENV_FOLDER=${{ env.env_folder }}" > .env
+          echo "DOMAIN_NAME=${{ vars.DOMAIN_NAME }}" >> .env
+          echo "PGHOST=${{ vars.PGHOST }}" >> .env
+          echo "PGPORT=${{ vars.PGPORT }}" >> .env
+          echo "PGDATABASE=${{ vars.PGDATABASE }}" >> .env
+          echo "PGUSER=${{ vars.PGUSER }}" >> .env
+          echo "PGPASSWORD=${{ secrets.PGPASSWORD }}" >> .env
+        shell: bash
+
+      - name: Asegurar Red Compartida
+        run: docker network inspect ${{ env.env_folder }}_shared_net >/dev/null 2>&1 || docker network create ${{ env.env_folder }}_shared_net
+        shell: bash
+
+      - name: Ejecutar Acción (Deploy/Destroy/Restart)
+        run: |
+          cd /opt/deploy/${{ env.env_folder }}/SummanPOS/flask_iventario
+          
+          if [ "${{ inputs.action }}" == "destroy" ]; then
+            echo "Destruyendo despliegue en ${{ env.env_folder }}..."
+            docker-compose down
+          elif [ "${{ inputs.action }}" == "restart" ]; then
+            echo "Reiniciando despliegue en ${{ env.env_folder }}..."
+            docker-compose restart
+          else
+            # Si estamos en main, construimos y empujamos al registry (Docker Hub)
+            if [ "${{ github.ref_name }}" == "main" ]; then
+              echo "Rama main detectada. Haciendo build y push al registry."
+              echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+              docker-compose build
+              docker-compose push
+              docker-compose pull
+              docker-compose up -d --remove-orphans
+            else
+              # Si estamos en dev/uat, solo construimos localmente sin hacer push
+              echo "Rama ${{ github.ref_name }} detectada. Haciendo build local."
+              docker-compose up --build -d --remove-orphans
+            fi
+          fi
+        shell: bash
+
+      # El deploy aplica migraciones SIEMPRE, asi que el respaldo va aqui,
+      # justo antes, y no detras de una casilla que por defecto estaba apagada.
+      - name: Backup preventivo de Base de Datos
+        if: ${{ inputs.hacer_backup == true && inputs.action == 'deploy' }}
+        uses: ./.github/actions/backup-db
+        with:
+          env_folder: ${{ env.env_folder }}
+          motivo: 'aplicar migraciones en un deploy'
+          pg_host: ${{ vars.PGHOST }}
+          pg_port: ${{ vars.PGPORT }}
+          pg_database: ${{ vars.PGDATABASE }}
+          pg_user: ${{ vars.PGUSER }}
+          pg_password: ${{ secrets.PGPASSWORD }}
+          gcp_wif_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          gcp_bucket: ${{ secrets.GCP_BUCKET_NAME }}
+
+      # El esquema lo construyen SOLO las migraciones: la app ya no ejecuta
+      # db.create_all() al arrancar. Por eso el upgrade dejo de ser opcional
+      # y corre siempre en un deploy, antes de sembrar los datos iniciales.
+      - name: Aplicar Migraciones (flask db upgrade)
+        if: ${{ inputs.action == 'deploy' }}
+        run: |
+          cd /opt/deploy/${{ env.env_folder }}/SummanPOS/flask_iventario
+          echo "Revision actual de la base de datos:"
+          docker-compose exec -T inventario_app flask db current || true
+          echo "Aplicando migraciones..."
+          salida=$(docker-compose exec -T inventario_app flask db upgrade 2>&1) && estado=0 || estado=$?
+          echo "$salida"
+
+          if [ "$estado" -ne 0 ]; then
+            # Unico fallo que sabemos reparar solos: la BD apunta a una revision
+            # que ya no existe porque se aplastaron las migraciones en el
+            # baseline 0001_baseline. Cualquier otro error debe romper el
+            # deploy en vez de sellarse a ciegas, que dejaria la BD marcada
+            # como migrada sin haber aplicado el DDL.
+            if echo "$salida" | grep -q "Can't locate revision"; then
+              echo "La BD apunta a una revision inexistente. Sellando con --purge..."
+              # OJO: 'flask db stamp head' a secas NO sirve aqui. Antes de
+              # escribir, Alembic resuelve la revision actual de la BD contra el
+              # historial, y falla con el mismo 'Can not locate revision'.
+              # --purge borra primero la fila de alembic_version, asi no hay
+              # nada que resolver. Requiere Flask-Migrate >= 2.6 (aqui 4.1.0).
+              docker-compose exec -T inventario_app flask db stamp --purge head
+              docker-compose exec -T inventario_app flask db upgrade
+            else
+              echo "El upgrade fallo por otro motivo. Se aborta el deploy."
+              exit "$estado"
+            fi
+          fi
+
+          echo "Revision resultante:"
+          docker-compose exec -T inventario_app flask db current
+
+          # El stamp solo dice "la BD ya esta en el baseline", no aplica DDL.
+          # Si el esquema real no coincide con los modelos, aqui se ve.
+          # Falla el deploy si el esquema real no coincide con los modelos. El
+          # stamp declara, no aplica DDL, asi que sin esta comprobacion una base
+          # mal sellada pasaria por buena.
+          echo "Comprobando que el esquema coincide con los modelos:"
+          docker-compose exec -T inventario_app flask db check
+        shell: bash
+
+      - name: Sembrar datos iniciales (roles y admin)
+        if: ${{ inputs.action == 'deploy' }}
+        run: |
+          cd /opt/deploy/${{ env.env_folder }}/SummanPOS/flask_iventario
+          docker-compose exec -T inventario_app flask seed-inicial
+        shell: bash
+
+      # Sin esto, un despliegue que deja la app caida termina en verde y el
+      # aviso llega por telefono.
+      - name: Verificar que la aplicacion responde
+        if: ${{ inputs.action == 'deploy' || inputs.action == 'restart' }}
+        run: |
+          cd /opt/deploy/${{ env.env_folder }}/SummanPOS/flask_iventario
+          for intento in $(seq 1 10); do
+            if docker-compose exec -T inventario_app python -c \
+                 "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/login', timeout=5).status < 400 else 1)"; then
+              echo "La aplicacion responde."
+              exit 0
+            fi
+            echo "Intento $intento/10: todavia no responde, reintentando en 6s..."
+            sleep 6
+          done
+          echo "::error::La aplicacion no respondio tras 60 segundos. Revisar 'docker-compose logs inventario_app'."
+          docker-compose logs --tail 50 inventario_app || true
+          exit 1
+        shell: bash

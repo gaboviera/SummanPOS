@@ -1,0 +1,32 @@
+{# ============================================================
+   Filas de productos del recibo. Compartido por recibo.html y
+   recibo_encabezado.html.
+   El title lleva el nombre completo: en el formato de una línea el
+   texto se recorta con puntos suspensivos, y así sigue consultable
+   en pantalla pasando el ratón por encima.
+   ============================================================ #}
+{% for t in transacciones %}
+<tr data-precio-total="{{ (t.cantidad * (t.precio_unitario if t.precio_unitario else 0))|float }}">
+    <td style="text-align: left;">{{ t.cantidad }}</td>
+    <td style="text-align: left;"
+        title="{{ t.producto.descripcion.replace('CÓDIGO: ', '') if t.producto and t.producto.descripcion else '' }}">
+        {% if t.producto and t.producto.descripcion %}
+            {{ t.producto.descripcion.replace('CÓDIGO: ', '') }}
+        {% endif %}
+    </td>
+    <td style="text-transform: uppercase;"
+        title="{{ t.producto.nombre if t.producto else 'Desconocido' }}">
+        {{ t.producto.nombre if t.producto else 'Desconocido' }}
+        {% if t.tipo == 'Venta (Dropshipping)' or (t.producto and t.producto.es_dropshipping) %}
+            <strong style="font-size: 14px;">*</strong>
+        {% endif %}
+    </td>
+    {% if es_ajuste %}
+    <td style="text-align: center;">{{ t.stock_anterior if t.stock_anterior is not none else 'N/A' }}</td>
+    <td style="text-align: center;">{{ t.tipo }}</td>
+    {% else %}
+    <td style="text-align: right;">{{ "{:,.2f}".format(t.precio_unitario).replace(',', 'X').replace('.', ',').replace('X', '.') if t.precio_unitario else '0,00' }}</td>
+    <td style="text-align: right;">{{ "{:,.2f}".format(t.cantidad * (t.precio_unitario if t.precio_unitario else 0)).replace(',', 'X').replace('.', ',').replace('X', '.') }}</td>
+    {% endif %}
+</tr>
+{% endfor %}

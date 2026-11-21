@@ -1,0 +1,105 @@
+name: DB Migrations SummanPOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Acción a realizar'
+        required: true
+        default: 'upgrade'
+        type: choice
+        options:
+          - current
+          - upgrade
+          - rollback
+          - stamp
+      rollback_target:
+        description: 'Versión a la que hacer rollback (Ej: id de la migración o -1). Solo aplica si la acción es rollback.'
+        required: false
+        default: '-1'
+        type: string
+      stamp_target:
+        description: 'Revision a estampar sin ejecutar SQL (Ej: 0001_baseline). Solo aplica si la accion es stamp.'
+        required: false
+        default: '0001_baseline'
+        type: string
+
+# Mismo grupo que deploy.yml: estas operaciones y un despliegue no pueden
+# coincidir sobre la misma base de datos.
+concurrency:
+  group: summanpos-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  db_operations:
+    runs-on: [self-hosted, prd]
+    environment:
+      name: ${{ github.ref_name == 'main' && 'prd' || github.ref_name }}
+    permissions:
+      contents: 'read'
+      # Necesario para que la accion de backup se autentique contra Google
+      # por Workload Identity Federation.
+      id-token: 'write'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Definir entorno
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "env_folder=prd" >> $GITHUB_ENV
+          else
+            echo "env_folder=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+        shell: bash
+
+      # 'current' solo lee, no necesita respaldo. Las otras tres modifican la
+      # base o el historial de Alembic: un downgrade borra columnas y un stamp
+      # mal puesto deja el esquema descuadrado sin forma de volver atras.
+      - name: Backup preventivo de Base de Datos
+        if: ${{ inputs.action != 'current' }}
+        uses: ./.github/actions/backup-db
+        with:
+          env_folder: ${{ env.env_folder }}
+          motivo: ${{ inputs.action }}
+          pg_host: ${{ vars.PGHOST }}
+          pg_port: ${{ vars.PGPORT }}
+          pg_database: ${{ vars.PGDATABASE }}
+          pg_user: ${{ vars.PGUSER }}
+          pg_password: ${{ secrets.PGPASSWORD }}
+          gcp_wif_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          gcp_bucket: ${{ secrets.GCP_BUCKET_NAME }}
+
+      - name: Ejecutar Acción de Base de Datos
+        run: |
+          cd /opt/deploy/${{ env.env_folder }}/SummanPOS/flask_iventario
+          
+          if [ "${{ inputs.action }}" == "current" ]; then
+            echo "Revision actual de la base de datos:"
+            docker-compose exec -T inventario_app flask db current
+
+          elif [ "${{ inputs.action }}" == "stamp" ]; then
+            # Marca la base como si ya estuviera en esa revision, sin tocar el
+            # esquema. Es lo que necesita una base PREEXISTENTE tras el squash
+            # a 0001_baseline: ya tiene las tablas, no debe recrearlas.
+            TARGET="${{ inputs.stamp_target }}"
+            echo "Estampando la base de datos en: $TARGET (no se ejecuta SQL de esquema)..."
+            # --purge borra la fila de alembic_version antes de escribir la
+            # nueva. Sin el, si la base apunta a una revision que ya no existe
+            # (justo el caso del squash), Alembic intenta resolverla primero y
+            # el stamp muere con "Can't locate revision" igual que el upgrade.
+            docker-compose exec -T inventario_app flask db stamp --purge "$TARGET"
+            docker-compose exec -T inventario_app flask db current
+
+          elif [ "${{ inputs.action }}" == "upgrade" ]; then
+            echo "Aplicando las últimas migraciones (upgrade)..."
+            docker-compose exec -T inventario_app flask db upgrade
+            
+          elif [ "${{ inputs.action }}" == "rollback" ]; then
+            TARGET="${{ inputs.rollback_target }}"
+            echo "Revirtiendo migraciones (downgrade) a: $TARGET..."
+            docker-compose exec -T inventario_app flask db downgrade $TARGET
+
+          fi
+        shell: bash

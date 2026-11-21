@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12">
+        <h1 class="display-5 fw-bold text-white mb-4 text-center">
+            <i class="bi bi-cart-check"></i> Punto de Venta / Despacho
+        </h1>
+    </div>
+
+    <!-- Datos del Cliente y Vendedor -->
+    <div class="col-12 mb-4">
+        <div class="card bg-dark border-secondary shadow">
+            <div class="card-header bg-dark border-bottom border-secondary pt-3">
+                <h4 class="text-warning"><i class="bi bi-person-lines-fill"></i> Datos del Despacho</h4>
+            </div>
+            <div class="card-body">
+                <form id="formCliente">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-white">Nombre o Razón Social</label>
+                            <input type="text" id="cliente_nombre" class="form-control bg-dark text-white border-secondary" placeholder="Ej: FERRE REPUESTOS URE, C.A" required>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label text-white">RIF / CI</label>
+                            <input type="text" id="cliente_identificacion" class="form-control bg-dark text-white border-secondary" placeholder="Ej: J-29904807-0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-white">Domicilio Fiscal / Dirección</label>
+                            <input type="text" id="cliente_direccion" class="form-control bg-dark text-white border-secondary" placeholder="Ej: CALLE COMERCIO SECTOR EL SAMAN...">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label text-white">Teléfono</label>
+                            <input type="text" id="cliente_telefono" class="form-control bg-dark text-white border-secondary" placeholder="Ej: 0414-5004566">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label text-white">Vendedor(a)</label>
+                            <input type="text" id="vendedor_nombre" class="form-control bg-dark text-white border-secondary" placeholder="Ej: José Torres" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-white">Observaciones</label>
+                            <input type="text" id="observaciones" class="form-control bg-dark text-white border-secondary" placeholder="Opcional">
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buscador de Productos -->
+    <div class="col-lg-6 mb-4">
+        <div class="card bg-dark border-secondary shadow h-100">
+            <div class="card-header bg-dark border-bottom border-secondary pt-3">
+                <h4 class="text-info"><i class="bi bi-search"></i> Buscar Producto</h4>
+            </div>
+            <div class="card-body">
+                <input type="text" id="buscador" class="form-control bg-dark text-white border-secondary mb-3 form-control-lg" placeholder="Buscar por código, nombre o marca...">
+                
+                <div class="list-group" id="listaResultados" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Los resultados aparecerán aquí vía JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carrito de Compras -->
+    <div class="col-lg-6 mb-4">
+        <div class="card bg-dark border-secondary shadow h-100">
+            <div class="card-header bg-dark border-bottom border-secondary pt-3">
+                <h4 class="text-success"><i class="bi bi-receipt"></i> Repuestos a Despachar</h4>
+            </div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-dark table-striped align-middle mb-0" id="tablaCarrito">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-center" style="width: 100px;">Cant.</th>
+                            <th class="text-end">Subtotal</th>
+                            <th class="text-center">Quitar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoCarrito">
+                        <!-- El carrito se llena aquí -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer border-top border-secondary bg-dark p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="text-white m-0">Total:</h4>
+                    <h3 class="text-success m-0 fw-bold" id="totalCobrar">$0.00</h3>
+                </div>
+                <button class="btn btn-success btn-lg w-100 fw-bold rounded-pill shadow" id="btnCompletarVenta" disabled>
+                    <i class="bi bi-check-circle"></i> Generar Guía de Despacho
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let todosLosProductos = [];
+    let todosLosContactos = [];
+    let carrito = [];
+    let totalGeneral = 0;
+
+    // 1. Cargar los productos desde el backend
+    fetch('/api/productos')
+        .then(response => response.json())
+        .then(data => {
+            todosLosProductos = data;
+        });
+
+    // 1.5 Cargar contactos (Clientes y Ambos)
+    fetch('/api/contactos?tipo=Cliente')
+        .then(response => response.json())
+        .then(data => {
+            todosLosContactos = Array.isArray(data) ? data : [];
+        })
+        .catch(err => {
+            console.error("Error al cargar contactos:", err);
+            todosLosContactos = [];
+        });
+
+    // Autocompletado de Clientes
+    const inputNombreCliente = document.getElementById('cliente_nombre');
+    
+    // Crear contenedor visual para las sugerencias de clientes
+    const sugerenciasCliente = document.createElement('div');
+    sugerenciasCliente.className = 'list-group position-absolute w-100 shadow';
+    sugerenciasCliente.style.zIndex = '1000';
+    inputNombreCliente.parentNode.appendChild(sugerenciasCliente);
+    inputNombreCliente.parentNode.style.position = 'relative';
+
+    inputNombreCliente.addEventListener('keyup', (e) => {
+        const query = e.target.value.toLowerCase();
+        sugerenciasCliente.innerHTML = '';
+        
+        if (query.length < 2) return;
+
+        const resultados = todosLosContactos.filter(c => 
+            (c.tipo === 'Cliente' || c.tipo === 'Ambos' || !c.tipo) &&
+            (c.nombre.toLowerCase().includes(query) || 
+            (c.identificacion && c.identificacion.toLowerCase().includes(query)))
+        ).slice(0, 4);
+
+        resultados.forEach(c => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = "list-group-item list-group-item-action bg-dark text-white border-secondary";
+            btn.innerHTML = `<strong>${c.nombre}</strong> <small class="text-muted">(${c.identificacion})</small>`;
+            btn.onclick = () => {
+                document.getElementById('cliente_nombre').value = c.nombre;
+                document.getElementById('cliente_identificacion').value = c.identificacion || '';
+                document.getElementById('cliente_direccion').value = c.direccion || '';
+                document.getElementById('cliente_telefono').value = c.telefono || '';
+                sugerenciasCliente.innerHTML = ''; // Limpiar sugerencias
+            };
+            sugerenciasCliente.appendChild(btn);
+        });
+    });
+
+    // Ocultar sugerencias si se hace clic fuera
+    document.addEventListener('click', (e) => {
+        if (e.target !== inputNombreCliente) {
+            sugerenciasCliente.innerHTML = '';
+        }
+    });
+
+    // 2. Lógica del Buscador
+    const buscador = document.getElementById('buscador');
+    const listaResultados = document.getElementById('listaResultados');
+
+    buscador.addEventListener('keyup', (e) => {
+        const query = e.target.value.toLowerCase();
+        listaResultados.innerHTML = '';
+        
+        if (query.length < 2) return;
+
+        const resultados = todosLosProductos.filter(p => 
+            p.nombre.toLowerCase().includes(query) || 
+            p.codigo.toLowerCase().includes(query) || 
+            p.marca.toLowerCase().includes(query)
+        ).slice(0, 5);
+
+        resultados.forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = "list-group-item list-group-item-action bg-dark text-white border-secondary d-flex justify-content-between align-items-center";
+            btn.innerHTML = `
+                <div>
+                    <h6 class="mb-0 text-primary">${p.nombre}</h6>
+                    <small class="text-muted">Cód: ${p.codigo} | Marca: ${p.marca}</small>
+                </div>
+                <div class="text-end">
+                    <span class="d-block fw-bold text-success">$${p.precio.toFixed(2)}</span>
+                    <span class="badge bg-secondary">Stock: ${p.stock}</span>
+                </div>
+            `;
+            btn.onclick = () => agregarAlCarrito(p);
+            listaResultados.appendChild(btn);
+        });
+    });
+
+    // 3. Lógica del Carrito
+    function agregarAlCarrito(producto) {
+        buscador.value = '';
+        listaResultados.innerHTML = '';
+        
+        const existe = carrito.find(item => item.id === producto.id);
+        if (existe) {
+            if (existe.cantidad < producto.stock) {
+                existe.cantidad++;
+            } else {
+                alert("¡No hay suficiente stock de este producto!");
+            }
+        } else {
+            carrito.push({ ...producto, cantidad: 1 });
+        }
+        renderizarCarrito();
+    }
+
+    function renderizarCarrito() {
+        const cuerpoCarrito = document.getElementById('cuerpoCarrito');
+        cuerpoCarrito.innerHTML = '';
+        totalGeneral = 0;
+
+        carrito.forEach((item, index) => {
+            const subtotal = item.precio * item.cantidad;
+            totalGeneral += subtotal;
+
+            cuerpoCarrito.innerHTML += `
+                <tr>
+                    <td>
+                        <div class="fw-bold text-white">${item.nombre}</div>
+                        <small class="text-muted">$${item.precio.toFixed(2)} c/u</small>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary text-center" 
+                               value="${item.cantidad}" min="1" max="${item.stock}" 
+                               onchange="actualizarCantidad(${index}, this.value)">
+                    </td>
+                    <td class="text-end fw-bold text-success">
+                        $${subtotal.toFixed(2)}
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-outline-danger btn-sm" onclick="eliminarDelCarrito(${index})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('totalCobrar').innerText = `$${totalGeneral.toFixed(2)}`;
+        document.getElementById('btnCompletarVenta').disabled = carrito.length === 0;
+    }
+
+    function actualizarCantidad(index, nuevaCantidad) {
+        const item = carrito[index];
+        const cant = parseInt(nuevaCantidad);
+        if (cant > 0 && cant <= item.stock) {
+            item.cantidad = cant;
+        } else {
+            alert("Cantidad inválida o superior al stock disponible.");
+        }
+        renderizarCarrito();
+    }
+
+    function eliminarDelCarrito(index) {
+        carrito.splice(index, 1);
+        renderizarCarrito();
+    }
+
+    // 4. Procesar la venta
+    document.getElementById('btnCompletarVenta').addEventListener('click', () => {
+        // Validar formulario de cliente
+        const cliente_nombre = document.getElementById('cliente_nombre').value;
+        const vendedor_nombre = document.getElementById('vendedor_nombre').value;
+        
+        if (!cliente_nombre || !vendedor_nombre) {
+            alert("Por favor ingrese el Nombre del Cliente y el Nombre del Vendedor.");
+            return;
+        }
+
+        document.getElementById('btnCompletarVenta').disabled = true;
+
+        const payload = {
+            cliente: {
+                nombre: cliente_nombre,
+                identificacion: document.getElementById('cliente_identificacion').value,
+                direccion: document.getElementById('cliente_direccion').value,
+                telefono: document.getElementById('cliente_telefono').value,
+                vendedor: vendedor_nombre,
+                observaciones: document.getElementById('observaciones').value,
+                total: totalGeneral
+            },
+            carrito: carrito
+        };
+
+        fetch('/ventas/registrar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Redirigir a la vista de recibo (guia de despacho)
+                window.location.href = "/ventas/recibo/" + data.referencia;
+            } else {
+                alert("Error: " + data.message);
+                document.getElementById('btnCompletarVenta').disabled = false;
+            }
+        })
+        .catch(error => {
+            alert("Error de conexión al procesar la venta.");
+            document.getElementById('btnCompletarVenta').disabled = false;
+        });
+    });
+
+</script>
+{% endblock %}

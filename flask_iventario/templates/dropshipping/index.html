@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container container-main animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-airplane-engines text-danger"></i> Órdenes de Dropshipping</h2>
+        <div>
+            <a href="{{ url_for('dropshipping.reporte') }}" class="btn btn-outline-danger me-2" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Reporte Global PDF</a>
+            <a href="{{ url_for('dropshipping.crear') }}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Nueva Orden</a>
+        </div>
+    </div>
+
+
+    <div class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('dropshipping.index') }}" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="q" class="form-label small fw-bold">Buscar (Ref o Cliente)</label>
+                    <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request.args.get('q', '') }}" placeholder="Ej. DRP-123 ...">
+                </div>
+                <div class="col-md-2">
+                    <label for="fecha_inicio" class="form-label small fw-bold">Fecha Inicio</label>
+                    <input type="date" class="form-control form-control-sm" id="fecha_inicio" name="fecha_inicio" value="{{ request.args.get('fecha_inicio', '') }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="fecha_fin" class="form-label small fw-bold">Fecha Fin</label>
+                    <input type="date" class="form-control form-control-sm" id="fecha_fin" name="fecha_fin" value="{{ request.args.get('fecha_fin', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="estado" class="form-label small fw-bold">Estado</label>
+                    <select class="form-select form-select-sm" id="estado" name="estado">
+                        <option value="">Todos los Estados</option>
+                        <option value="Pendiente" {% if request.args.get('estado') == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                        <option value="Procesando" {% if request.args.get('estado') == 'Procesando' %}selected{% endif %}>Procesando</option>
+                        <option value="Enviado" {% if request.args.get('estado') == 'Enviado' %}selected{% endif %}>Enviado</option>
+                        <option value="Entregado" {% if request.args.get('estado') == 'Entregado' %}selected{% endif %}>Entregado</option>
+                        <option value="Cancelado" {% if request.args.get('estado') == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-funnel"></i> Filtrar</button>
+                    <a href="{{ url_for('dropshipping.index') }}" class="btn btn-sm btn-outline-secondary" title="Limpiar Filtros"><i class="bi bi-eraser"></i></a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Referencia</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Proveedor</th>
+                        <th>Transporte / Guía</th>
+                        <th>Estado</th>
+                        <th>Cuentas por Cobrar</th>
+                        <th>Cuentas por Pagar</th>
+                        <th>Ganancia</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for orden in ordenes %}
+                    <tr>
+                        <td class="fw-bold">{{ orden.referencia }}</td>
+                        <td>{{ orden.fecha_local.strftime('%Y-%m-%d %H:%M') if orden.fecha_local else 'N/A' }}</td>
+                        <td>{{ orden.cliente.nombre }}</td>
+                        <td>{{ orden.proveedor.nombre }}</td>
+                        <td>
+                            {% if orden.empresa_transporte %}
+                                {{ orden.empresa_transporte }}<br>
+                                <small class="text-muted">{{ orden.numero_seguimiento }}</small>
+                            {% else %}
+                                <span class="text-muted fst-italic">Sin asignar</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if orden.estado == 'Pendiente' %}
+                                <span class="badge bg-secondary">Pendiente</span>
+                            {% elif orden.estado == 'Procesando' %}
+                                <span class="badge bg-warning text-dark">Procesando</span>
+                            {% elif orden.estado == 'Enviado' %}
+                                <span class="badge bg-info text-dark">Enviado</span>
+                            {% elif orden.estado == 'Entregado' %}
+                                <span class="badge bg-success">Entregado</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ orden.estado }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if orden.pago_cliente_estado == 'Pagado' %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Pagado</span>
+                            {% elif orden.pago_cliente_estado == 'Parcial' %}
+                                <span class="badge bg-warning text-dark">Parcial</span>
+                            {% else %}
+                                <span class="badge bg-danger">Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if orden.pago_proveedor_estado == 'Pagado' %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Pagado</span>
+                            {% elif orden.pago_proveedor_estado == 'Parcial' %}
+                                <span class="badge bg-warning text-dark">Parcial</span>
+                            {% else %}
+                                <span class="badge bg-danger">Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-success fw-bold">${{ "%.2f"|format(orden.ganancia) }}</td>
+                        <td>
+                            <a href="{{ url_for('dropshipping.detalle', id=orden.id) }}" class="btn btn-sm btn-outline-primary" title="Ver Detalle">
+                                <i class="bi bi-eye"></i> Ver
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center py-4">No hay órdenes de dropshipping registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Paginación -->
+        {% if paginacion %}
+        <div class="card-footer bg-white border-0 py-3">
+            <nav aria-label="Navegación de páginas">
+                <ul class="pagination justify-content-center mb-0">
+                    <li class="page-item {% if not paginacion.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('dropshipping.index', page=paginacion.prev_num, q=request.args.get('q'), fecha_inicio=request.args.get('fecha_inicio'), fecha_fin=request.args.get('fecha_fin'), estado=request.args.get('estado')) if paginacion.has_prev else '#' }}" tabindex="-1">Anterior</a>
+                    </li>
+                    
+                    {% for page_num in paginacion.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if page_num %}
+                            <li class="page-item {% if page_num == paginacion.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('dropshipping.index', page=page_num, q=request.args.get('q'), fecha_inicio=request.args.get('fecha_inicio'), fecha_fin=request.args.get('fecha_fin'), estado=request.args.get('estado')) }}">{{ page_num }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <li class="page-item {% if not paginacion.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('dropshipping.index', page=paginacion.next_num, q=request.args.get('q'), fecha_inicio=request.args.get('fecha_inicio'), fecha_fin=request.args.get('fecha_fin'), estado=request.args.get('estado')) if paginacion.has_next else '#' }}">Siguiente</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

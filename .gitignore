@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+.serena/
+
+# Flask & SQLite
+instance/
+*.db
+*.sqlite
+*.sqlite3
+flask_iventario/instance/
+
+check_db.py
+fix_db.py
+# =====================================================================
+# Security & Agent Scripts Configuration
+# =====================================================================
+.env
+.env.*
+!.env.example
+!*.env.example
+!agents_scripts/.env.example
+
+# Allow tracking scripts in agents_scripts/, ignore env and caches
+agents_scripts/.env
+agents_scripts/.env.*
+agents_scripts/__pycache__/
+agents_scripts/*.pyc
+agents_scripts/*.log
+!agents_scripts/.env.example
+
+# Agent scratch & environment
+.tmp/
+.playwright-mcp/

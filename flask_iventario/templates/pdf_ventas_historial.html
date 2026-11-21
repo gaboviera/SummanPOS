@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Ventas</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            color: #333;
+            font-size: 11pt;
+            line-height: 1.4;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #8A59C4;
+            padding-bottom: 15px;
+        }
+
+        .header h1 {
+            color: #4B2C7F;
+            margin: 0 0 5px 0;
+            font-size: 24pt;
+        }
+
+        .header p {
+            margin: 0;
+            color: #757575;
+            font-size: 10pt;
+        }
+
+        .filtros {
+            background-color: #F4F0FA;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            font-size: 10pt;
+        }
+
+        .filtros p {
+            margin: 5px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #E0E0E0;
+            padding: 8px;
+            text-align: left;
+            font-size: 10pt;
+        }
+
+        th {
+            background-color: #4B2C7F;
+            color: white;
+            font-weight: bold;
+        }
+
+        .text-end {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .estado-anulada {
+            color: #86207C;
+            font-weight: bold;
+        }
+
+        .estado-completada {
+            color: #0097A9;
+        }
+
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 9pt;
+            color: #757575;
+            border-top: 1px solid #E0E0E0;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Reporte Histórico de Ventas</h1>
+        <p>Generado el: {{ fecha_generacion }}</p>
+    </div>
+
+    <div class="filtros">
+        <p><strong>Filtros aplicados:</strong></p>
+        <p>
+            {% if q %} Búsqueda: <i>"{{ q }}"</i> &nbsp;&nbsp;&nbsp; {% endif %}
+            {% if fecha_inicio %} Desde: <i>{{ fecha_inicio }}</i> &nbsp;&nbsp;&nbsp; {% endif %}
+            {% if fecha_fin %} Hasta: <i>{{ fecha_fin }}</i> &nbsp;&nbsp;&nbsp; {% endif %}
+            {% if estado %} Estado: <i>{{ estado }}</i> {% endif %}
+            {% if not q and not fecha_inicio and not fecha_fin and not estado %}
+            <i>Todos los registros (Sin filtros)</i>
+            {% endif %}
+        </p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Nº Ticket</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Vendedor</th>
+                <th>Estado</th>
+                <th class="text-end">Tasa BCV</th>
+                <th class="text-end">Total ($)</th>
+                <th class="text-end">Total (Bs)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set totals = namespace(usd=0, bs=0) %}
+            {% for g in guias %}
+            <tr>
+                <td>{{ g.referencia }}</td>
+                <td>{{ g.fecha.strftime('%d/%m/%Y %H:%M') if g.fecha else 'N/A' }}</td>
+                <td>{{ g.cliente_nombre if g.cliente_nombre else 'Venta de Mostrador' }}</td>
+                <td>{{ g.vendedor_nombre }}</td>
+                <td class="{% if g.estado == 'Anulada' %}estado-anulada{% else %}estado-completada{% endif %}">
+                    {{ g.estado }}
+                </td>
+                <td class="text-end">{{ "%.2f"|format(g.tasa_bcv) if g.tasa_bcv else '-' }}</td>
+                <td class="text-end">${{ "%.2f"|format(g.total) if g.total else '0.00' }}</td>
+                <td class="text-end">
+                    {% if g.total and g.tasa_bcv %}
+                    Bs. {{ "%.2f"|format(g.total * g.tasa_bcv) }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+            </tr>
+            {% if g.estado != 'Anulada' and g.total %}
+            {% set totals.usd = totals.usd + g.total %}
+            {% if g.tasa_bcv %}
+            {% set totals.bs = totals.bs + (g.total * g.tasa_bcv) %}
+            {% endif %}
+            {% endif %}
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="6" class="text-end" style="background-color: #F4F0FA; color: #4B2C7F;">TOTALES (Solo
+                    Completadas):</th>
+                <th class="text-end" style="background-color: #F4F0FA; color: #4B2C7F;">${{ "%.2f"|format(totals.usd) }}
+                </th>
+                <th class="text-end" style="background-color: #F4F0FA; color: #4B2C7F;">Bs. {{ "%.2f"|format(totals.bs)
+                    }}</th>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="footer">
+        Este documento es de uso interno exclusivo. - Repuestos Luisauris
+    </div>
+
+</body>
+
+</html>

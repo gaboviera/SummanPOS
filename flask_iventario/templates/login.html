@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Repuestos Luisauris</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        :root {
+            --st-purple-50: #F4F0FA;
+            --st-purple-700: #4B2C7F;
+            --st-purple-900: #261640;
+        }
+        body {
+            background-color: var(--st-purple-50);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background-color: #ffffff;
+            border: none;
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .login-header {
+            background: linear-gradient(135deg, var(--st-purple-700) 0%, var(--st-purple-900) 100%);
+            padding: 2rem;
+            text-align: center;
+        }
+        .login-body {
+            padding: 2.5rem;
+        }
+        .btn-primary {
+            background-color: var(--st-purple-700);
+            border-color: var(--st-purple-700);
+        }
+        .btn-primary:hover {
+            background-color: var(--st-purple-900);
+            border-color: var(--st-purple-900);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-8 col-lg-5">
+                
+                <!-- Alertas Flash -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Tarjeta de Login -->
+                <div class="card login-card">
+                    <div class="login-header">
+                        <h2 class="fw-bold text-white mb-0">
+                            <i class="bi bi-box-seam"></i> Repuestos Luisauris
+                        </h2>
+                        <p class="text-white-50 mt-2 mb-0">Sistema Administrativo</p>
+                    </div>
+                    
+                    <div class="login-body">
+                        <form method="POST" action="">
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="mb-4">
+                                <label class="form-label text-secondary fw-semibold">{{ form.username.label.text }}</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border text-secondary">
+                                        <i class="bi bi-person-fill"></i>
+                                    </span>
+                                    {{ form.username(class="form-control bg-white text-dark border", placeholder="Introduce tu usuario", autofocus=true) }}
+                                </div>
+                                {% for error in form.username.errors %}
+                                    <span class="text-danger small">{{ error }}</span>
+                                {% endfor %}
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label text-secondary fw-semibold">{{ form.password.label.text }}</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border text-secondary">
+                                        <i class="bi bi-key-fill"></i>
+                                    </span>
+                                    {{ form.password(class="form-control bg-white text-dark border", placeholder="Introduce tu contraseña") }}
+                                </div>
+                                {% for error in form.password.errors %}
+                                    <span class="text-danger small">{{ error }}</span>
+                                {% endfor %}
+                            </div>
+
+                            <div class="d-grid mt-5">
+                                {{ form.submit(class="btn btn-primary btn-lg rounded-pill fw-bold") }}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('auth.landing') }}" class="text-decoration-none text-muted mb-2 d-inline-block">
+                        <i class="bi bi-arrow-left-short"></i> Volver a la página principal
+                    </a>
+                    <br>
+                    <small class="text-muted">&copy; 2026 - Todos los derechos reservados</small>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

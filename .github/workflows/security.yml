@@ -1,0 +1,19 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, uat, dev, '19.0-dev*']
+  pull_request:
+    branches: [main, uat, dev, '19.0-dev*']
+  workflow_dispatch:
+
+jobs:
+  security:
+    name: Security & Secret Scan
+    uses: SummanTech/infra-templates/.github/workflows/security-scan.yml@main
+    with:
+      enable_trivy: true
+      enable_trufflehog: true
+      enable_custom_scanner: true
+      trivy_severity: 'CRITICAL,HIGH'
+      fail_on_detection: true

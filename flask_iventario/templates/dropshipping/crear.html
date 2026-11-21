@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container container-main animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-plus-circle text-danger"></i> Nueva Orden de Dropshipping</h2>
+        <a href="{{ url_for('dropshipping.index') }}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+    </div>
+
+    <!-- Fila Superior: Participantes y Añadir Producto al mismo nivel -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3 mb-md-0">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-people me-2"></i>Participantes</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <label class="form-label">Cliente (Comprador)</label>
+                            <a href="#" class="text-primary small text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalNuevoContacto" onclick="document.getElementById('contactoDestino').value = 'clienteSelect';"><i class="bi bi-person-plus"></i> Nuevo</a>
+                        </div>
+                        <select id="clienteSelect" class="form-select tom-select">
+                            <option value="">Seleccione un cliente...</option>
+                            {% for c in clientes %}
+                            <option value="{{ c.id }}">{{ c.identificacion }} - {{ c.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <label class="form-label">Proveedor (El que envía)</label>
+                            <a href="#" class="text-primary small text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalNuevoContacto" onclick="document.getElementById('contactoDestino').value = 'proveedorSelect';"><i class="bi bi-person-plus"></i> Nuevo</a>
+                        </div>
+                        <select id="proveedorSelect" class="form-select tom-select">
+                            <option value="">Seleccione un proveedor...</option>
+                            {% for p in proveedores %}
+                            <option value="{{ p.id }}">{{ p.identificacion }} - {{ p.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-cart-plus me-2"></i>Añadir Producto</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Producto</label>
+                        <select id="productoSelect" class="form-select tom-select">
+                            <option value="">Seleccione un producto...</option>
+                            {% for prod in productos %}
+                            <option value="{{ prod.id }}" data-nombre="{{ prod.nombre }}" data-costo="{{ prod.costo or 0 }}" data-precio="{{ prod.precio }}">{{ prod.nombre }} (Base: ${{ prod.precio }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-4">
+                            <label class="form-label">Cant.</label>
+                            <input type="number" id="cantidadInput" class="form-control" value="1" min="1">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Costo ($)</label>
+                            <input type="number" id="costoInput" class="form-control" step="0.01">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Precio ($)</label>
+                            <input type="number" id="precioInput" class="form-control" step="0.01">
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary w-100" onclick="agregarProducto()">
+                        <i class="bi bi-cart-plus"></i> Agregar a la Orden
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fila Inferior: Detalles de la Orden (Abajo de ambos) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Detalles de la Orden</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0" id="tablaDetalles">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cant.</th>
+                                <th>Costo Unit.</th>
+                                <th>Precio Unit.</th>
+                                <th>Costo Total</th>
+                                <th>Venta Total</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Las filas se agregarán con JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-light">
+                    <div class="row text-end">
+                        <div class="col-12 fs-5">
+                            Costo a Pagar: <strong id="lblCosto" class="text-danger">$0.00</strong><br>
+                            Monto de Venta: <strong id="lblVenta" class="text-primary">$0.00</strong><br>
+                            Ganancia Neta: <strong id="lblGanancia" class="text-success fs-4">$0.00</strong>
+                        </div>
+                    </div>
+                    <hr>
+                    <button type="button" class="btn btn-success btn-lg w-100 mt-2" onclick="procesarOrden()">
+                        <i class="bi bi-check-circle"></i> Crear Orden de Dropshipping
+                    </button>
+                </div>
+            </div>
+            
+            <div class="alert alert-info mt-3">
+                <i class="bi bi-info-circle"></i> <strong>Nota:</strong> Las órdenes de dropshipping NO afectan el inventario físico local.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuevo Contacto -->
+<div class="modal fade" id="modalNuevoContacto" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nuevo Contacto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="contactoDestino">
+                <div class="mb-3">
+                    <label class="form-label">RIF / CI</label>
+                    <input type="text" id="nuevoContactoRif" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nombre / Razón Social</label>
+                    <input type="text" id="nuevoContactoNombre" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Correo Electrónico</label>
+                    <input type="email" id="nuevoContactoCorreo" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Teléfono</label>
+                    <input type="text" id="nuevoContactoTelefono" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Dirección</label>
+                    <input type="text" id="nuevoContactoDireccion" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarNuevoContacto()">Guardar y Usar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    
+    // Instancias de TomSelect
+    let tsCliente, tsProveedor, tsProducto;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        tsCliente = new TomSelect("#clienteSelect", { create: false, sortField: { field: "text", direction: "asc" } });
+        tsProveedor = new TomSelect("#proveedorSelect", { create: false, sortField: { field: "text", direction: "asc" } });
+        tsProducto = new TomSelect("#productoSelect", { 
+            create: false, 
+            sortField: { field: "text", direction: "asc" },
+            onChange: function(value) {
+                if(value && productosData[value]) {
+                    const data = productosData[value];
+                    document.getElementById('costoInput').value = data.costo;
+                    document.getElementById('precioInput').value = data.precio;
+                    document.getElementById('cantidadInput').value = 1;
+                }
+            }
+        });
+    });
+
+    function guardarNuevoContacto() {
+        const destino = document.getElementById('contactoDestino').value;
+        const rif = document.getElementById('nuevoContactoRif').value;
+        const nombre = document.getElementById('nuevoContactoNombre').value;
+        const correo = document.getElementById('nuevoContactoCorreo').value;
+        const telefono = document.getElementById('nuevoContactoTelefono').value;
+        const direccion = document.getElementById('nuevoContactoDireccion').value;
+
+        if(!rif || !nombre) {
+            Swal.fire('Error', 'RIF y Nombre son obligatorios', 'warning');
+            return;
+        }
+
+        fetch('/api/contactos/crear', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ identificacion: rif, nombre: nombre, correo: correo, telefono: telefono, direccion: direccion })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                const text = `${data.contacto.identificacion} - ${data.contacto.nombre}`;
+                const value = data.contacto.id;
+
+                tsCliente.addOption({value: value, text: text});
+                tsProveedor.addOption({value: value, text: text});
+
+                if(destino === 'clienteSelect') {
+                    tsCliente.addItem(value);
+                } else if(destino === 'proveedorSelect') {
+                    tsProveedor.addItem(value);
+                }
+
+                bootstrap.Modal.getInstance(document.getElementById('modalNuevoContacto')).hide();
+                Swal.fire('Éxito', 'Contacto creado y seleccionado', 'success');
+                
+                // Limpiar modal
+                document.getElementById('nuevoContactoRif').value = '';
+                document.getElementById('nuevoContactoNombre').value = '';
+                document.getElementById('nuevoContactoCorreo').value = '';
+                document.getElementById('nuevoContactoTelefono').value = '';
+                document.getElementById('nuevoContactoDireccion').value = '';
+            } else {
+                Swal.fire('Error', data.message, 'error');
+            }
+        });
+    }
+
+    let productosOrden = [];
+
+    // Diccionario de productos para acceso rápido y sin depender del DOM
+    const productosData = {
+        {% for prod in productos %}
+        "{{ prod.id }}": {
+            nombre: {{ prod.nombre|tojson|safe }},
+            costo: {{ prod.costo or 0 }},
+            precio: {{ prod.precio or 0 }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    function agregarProducto() {
+        const prodId = tsProducto.getValue();
+        const cantidad = parseInt(document.getElementById('cantidadInput').value);
+        const costo = parseFloat(document.getElementById('costoInput').value);
+        const precio = parseFloat(document.getElementById('precioInput').value);
+        
+        if(!prodId || cantidad < 1 || isNaN(costo) || isNaN(precio)) {
+            alert('Complete todos los campos del producto correctamente.');
+            return;
+        }
+        
+        const nombre = productosData[prodId] ? productosData[prodId].nombre : "Producto " + prodId;
+        
+        // Verificar si ya existe
+        const index = productosOrden.findIndex(p => p.producto_id == prodId);
+        if(index >= 0) {
+            productosOrden[index].cantidad += cantidad;
+            // Podría actualizar el costo o precio si lo desean, pero lo dejamos como está.
+        } else {
+            productosOrden.push({
+                producto_id: prodId,
+                nombre: nombre,
+                cantidad: cantidad,
+                costo: costo,
+                precio: precio
+            });
+        }
+        
+        actualizarTabla();
+        // Reset campos
+        productoSelectTS.clear();
+        document.getElementById('cantidadInput').value = '';
+        document.getElementById('costoInput').value = '';
+        document.getElementById('precioInput').value = '';
+    }
+
+    function eliminarProducto(index) {
+        productosOrden.splice(index, 1);
+        actualizarTabla();
+    }
+
+    function actualizarTabla() {
+        const tbody = document.querySelector('#tablaDetalles tbody');
+        tbody.innerHTML = '';
+        
+        let granTotalCosto = 0;
+        let granTotalVenta = 0;
+        
+        productosOrden.forEach((p, idx) => {
+            const subCosto = p.cantidad * p.costo;
+            const subVenta = p.cantidad * p.precio;
+            
+            granTotalCosto += subCosto;
+            granTotalVenta += subVenta;
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${p.nombre}</td>
+                <td>${p.cantidad}</td>
+                <td>$${p.costo.toFixed(2)}</td>
+                <td>$${p.precio.toFixed(2)}</td>
+                <td class="text-danger">$${subCosto.toFixed(2)}</td>
+                <td class="text-primary">$${subVenta.toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarProducto(${idx})"><i class="bi bi-trash"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        document.getElementById('lblCosto').innerText = '$' + granTotalCosto.toFixed(2);
+        document.getElementById('lblVenta').innerText = '$' + granTotalVenta.toFixed(2);
+        document.getElementById('lblGanancia').innerText = '$' + (granTotalVenta - granTotalCosto).toFixed(2);
+    }
+
+    function procesarOrden() {
+        const clienteId = document.getElementById('clienteSelect').value;
+        const proveedorId = document.getElementById('proveedorSelect').value;
+        
+        if(!clienteId || !proveedorId) {
+            Swal.fire('Faltan Datos', 'Debe seleccionar un cliente (comprador) y un proveedor.', 'warning');
+            return;
+        }
+        
+        if(productosOrden.length === 0) {
+            Swal.fire('Faltan Datos', 'Debe agregar al menos un producto a la orden.', 'warning');
+            return;
+        }
+        
+        const payload = {
+            cliente_id: clienteId,
+            proveedor_id: proveedorId,
+            productos: productosOrden
+        };
+        
+        fetch("{{ url_for('dropshipping.crear') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                window.location.href = data.url;
+            } else {
+                Swal.fire("Error", "Error al crear la orden: " + data.message, "error");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            Swal.fire("Error", "Ocurrió un error en la solicitud al servidor.", "error");
+        });
+    }
+</script>
+{% endblock %}

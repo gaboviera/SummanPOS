@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Contactos</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+            @frame footer {
+                -pdf-frame-content: footerContent;
+                bottom: 1cm;
+                margin-left: 1.5cm;
+                margin-right: 1.5cm;
+                height: 1cm;
+            }
+        }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #333; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #0056b3; padding-bottom: 10px; }
+        .header h1 { margin: 0; color: #0056b3; font-size: 18px; }
+        .header p { margin: 5px 0 0; color: #666; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th { background-color: #f4f6f9; color: #333; font-weight: bold; }
+        tr:nth-child(even) { background-color: #fafafa; }
+        .text-center { text-align: center; }
+        .badge { display: inline-block; padding: 2px 5px; border-radius: 3px; font-size: 9px; color: #fff; font-weight: bold; margin-right: 3px; }
+        .badge-cliente { background-color: #28a745; }
+        .badge-proveedor { background-color: #17a2b8; }
+        #footerContent { text-align: right; font-size: 9px; color: #777; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Directorio de Contactos</h1>
+        <p>Fecha de emisión: {{ fecha }} | Filtro aplicado: {{ tipo_filtro|capitalize }}</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 30%">Nombre / Razón Social</th>
+                <th style="width: 15%">RIF / CI</th>
+                <th style="width: 25%">Correo</th>
+                <th style="width: 15%">Teléfono</th>
+                <th style="width: 15%">Tipo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in contactos %}
+            <tr>
+                <td>{{ c.nombre }}</td>
+                <td>{{ c.identificacion }}</td>
+                <td>{{ c.correo or 'N/A' }}</td>
+                <td>{{ c.telefono or 'N/A' }}</td>
+                <td>
+                    {% if c.es_cliente %}<span class="badge badge-cliente">Cliente</span>{% endif %}
+                    {% if c.es_proveedor %}<span class="badge badge-proveedor">Proveedor</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not contactos %}
+            <tr>
+                <td colspan="5" class="text-center">No hay contactos para este filtro.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <div id="footerContent">
+        Página <pdf:pagenumber> de <pdf:pagecount>
+    </div>
+</body>
+</html>

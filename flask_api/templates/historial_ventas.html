@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12">
+        <h1 class="display-5 fw-bold text-white mb-4 text-center">
+            <i class="bi bi-receipt"></i> Historial de Ventas
+        </h1>
+
+        <!-- Tarjeta de Filtros -->
+        <div class="card bg-dark border-secondary shadow mb-4">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('ventas.historial_ventas') }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label text-info">Buscar (Ref o Cliente)</label>
+                            <input type="text" name="q" class="form-control bg-dark text-white border-secondary" placeholder="Ej. VTA-..." value="{{ q }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label text-info">Fecha Inicio</label>
+                            <input type="date" name="fecha_inicio" class="form-control bg-dark text-white border-secondary" value="{{ fecha_inicio }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label text-info">Fecha Fin</label>
+                            <input type="date" name="fecha_fin" class="form-control bg-dark text-white border-secondary" value="{{ fecha_fin }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-info">Estado</label>
+                            <select name="estado" class="form-select bg-dark text-white border-secondary">
+                                <option value="">Todos los Estados</option>
+                                <option value="Completada" {% if estado == 'Completada' %}selected{% endif %}>Completada</option>
+                                <option value="Anulada" {% if estado == 'Anulada' %}selected{% endif %}>Anulada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel"></i> Filtrar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card bg-dark border-secondary shadow">
+            <div class="card-header bg-dark border-bottom border-secondary d-flex justify-content-between align-items-center pt-3">
+                <h4 class="text-info m-0"><i class="bi bi-card-list"></i> Resultados de Ventas</h4>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-dark table-striped table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Nº Ticket</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Vendedor</th>
+                            <th class="text-end">Total ($)</th>
+                            <th class="text-center">Estado / Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if guias.items %}
+                        {% for g in guias.items %}
+                        <tr>
+                            <td class="text-secondary fw-bold">
+                                <a href="/ventas/recibo/{{ g.referencia }}" class="btn btn-sm btn-outline-info" title="Reimprimir Guía" target="_blank">
+                                    <i class="bi bi-printer"></i> {{ g.referencia }}
+                                </a>
+                            </td>
+                            <td>{{ g.fecha.strftime('%Y-%m-%d %H:%M') if g.fecha else 'N/A' }}</td>
+                            <td>
+                                {% if g.cliente_nombre %}
+                                    <span class="text-white">{{ g.cliente_nombre }}</span><br>
+                                    <small class="text-muted">{{ g.cliente_identificacion }}</small>
+                                {% else %}
+                                    <span class="text-muted">Venta de Mostrador</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ g.vendedor_nombre if g.vendedor_nombre else 'N/A' }}
+                            </td>
+                            <td class="text-end fw-bold text-success">
+                                ${{ "%.2f"|format(g.total) if g.total else '0.00' }}
+                            </td>
+                            <td class="text-center">
+                                {% if g.estado == 'Anulada' %}
+                                    <span class="badge bg-danger rounded-pill mb-1 d-block"><i class="bi bi-x-circle"></i> Anulada</span>
+                                {% else %}
+                                    <span class="badge bg-success rounded-pill mb-1 d-block"><i class="bi bi-check-circle"></i> Completada</span>
+                                    <form action="{{ url_for('ventas.anular_venta', referencia=g.referencia) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro que deseas ANULAR esta venta? El stock será devuelto al inventario y se borrará de los ingresos del día. Esta acción NO se puede deshacer.');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Anular Venta (Devolución)">
+                                            <i class="bi bi-arrow-return-left"></i> Anular
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">
+                                <h4>No hay ventas registradas.</h4>
+                                <p>Tus ventas realizadas aparecerán aquí.</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Paginador -->
+        {% if guias.pages > 1 %}
+        <nav class="mt-4" aria-label="Page navigation">
+          <ul class="pagination justify-content-center pagination-dark">
+            <li class="page-item {% if not guias.has_prev %}disabled{% endif %}">
+              <a class="page-link bg-dark text-white border-secondary" href="{{ url_for('ventas.historial_ventas', page=guias.prev_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado=estado) }}">Anterior</a>
+            </li>
+            
+            {% for page_num in guias.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if page_num %}
+                <li class="page-item {% if guias.page == page_num %}active{% endif %}">
+                  <a class="page-link {% if guias.page == page_num %}bg-primary text-white border-primary{% else %}bg-dark text-white border-secondary{% endif %}" href="{{ url_for('ventas.historial_ventas', page=page_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado=estado) }}">{{ page_num }}</a>
+                </li>
+              {% else %}
+                <li class="page-item disabled"><span class="page-link bg-dark text-secondary border-secondary">...</span></li>
+              {% endif %}
+            {% endfor %}
+            
+            <li class="page-item {% if not guias.has_next %}disabled{% endif %}">
+              <a class="page-link bg-dark text-white border-secondary" href="{{ url_for('ventas.historial_ventas', page=guias.next_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado=estado) }}">Siguiente</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+        
+    </div>
+</div>
+{% endblock %}

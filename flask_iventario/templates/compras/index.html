@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary fw-bold">Órdenes de Compra</h2>
+        <a href="{{ url_for('compras.nueva_orden') }}" class="btn btn-primary rounded-pill shadow-sm">
+            <i class="bi bi-plus-circle"></i> Nueva Orden
+        </a>
+    </div>
+
+    <!-- Mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Buscador y Filtros -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('compras.index') }}" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="q" class="form-label text-muted fw-bold small">Proveedor o Referencia</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" class="form-control" id="q" name="q" value="{{ q }}" placeholder="OC-123456...">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="estado" class="form-label text-muted fw-bold small">Estado de Compra</label>
+                    <select name="estado" id="estado" class="form-select">
+                        <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos los estados</option>
+                        <option value="En Tránsito" {% if estado == 'En Tránsito' %}selected{% endif %}>En Tránsito</option>
+                        <option value="Parcial" {% if estado == 'Parcial' %}selected{% endif %}>Recepción Parcial</option>
+                        <option value="Recibida" {% if estado == 'Recibida' %}selected{% endif %}>Recibida</option>
+                        <option value="Anulada" {% if estado == 'Anulada' %}selected{% endif %}>Anulada</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label text-muted fw-bold small">Rango de Fecha</label>
+                    <div class="input-group">
+                        <input type="date" class="form-control" name="fecha_inicio" value="{{ fecha_inicio }}">
+                        <span class="input-group-text px-2">a</span>
+                        <input type="date" class="form-control" name="fecha_fin" value="{{ fecha_fin }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel me-1"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0 bg-white">
+                <thead class="bg-light text-dark border-bottom">
+                    <tr>
+                        <th>Referencia</th>
+                        <th>Proveedor</th>
+                        <th>Fecha de Creación</th>
+                        <th>Estado</th>
+                        <th>Total ($)</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if ordenes.items %}
+                        {% for orden in ordenes.items %}
+                        <tr>
+                            <td class="fw-bold text-primary">{{ orden.referencia }}</td>
+                            <td>{{ orden.proveedor.nombre }}</td>
+                            <td>{{ orden.fecha_local.strftime('%d/%m/%Y %H:%M') if orden.fecha_local else 'N/A' }}</td>
+                            <td>
+                                {% if orden.estado == 'Borrador' %}
+                                    <span class="badge bg-secondary">Borrador</span>
+                                {% elif orden.estado == 'En Tránsito' %}
+                                    <span class="badge bg-primary">En Tránsito</span>
+                                {% elif orden.estado == 'Parcial' %}
+                                    <span class="badge bg-warning text-dark">Recepción Parcial</span>
+                                {% elif orden.estado == 'Recibida' %}
+                                    <span class="badge bg-success">Recibida</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{{ orden.estado }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold">${{ "%.2f"|format(orden.total) }}</td>
+                            <td class="text-center">
+                                <a href="{{ url_for('compras.ver_recibo', referencia=orden.referencia) }}" class="btn btn-sm btn-outline-info rounded-pill shadow-sm me-1" title="Ver Reporte">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                </a>
+                                {% if orden.estado in ['En Tránsito', 'Parcial'] %}
+                                    <a href="{{ url_for('compras.recibir', orden_id=orden.id) }}" class="btn btn-sm btn-success rounded-pill shadow-sm me-1">
+                                        <i class="bi bi-box-arrow-in-down"></i> Recibir
+                                    </a>
+                                {% elif orden.estado == 'Recibida' %}
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill me-1" disabled>
+                                        <i class="bi bi-check2-all"></i> Completa
+                                    </button>
+                                {% endif %}
+                                
+                                {% if current_user.rol and current_user.rol.nombre in ['Super Admin', 'Administrador'] and orden.estado != 'Cancelada' %}
+                                    <form action="{{ url_for('compras.anular', orden_id=orden.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas anular esta orden? Esto revertirá el stock de los productos si ya fueron recibidos.');">
+                                        <button type="submit" class="btn btn-sm btn-danger rounded-pill shadow-sm" title="Anular Orden">
+                                            <i class="bi bi-x-circle"></i> Anular
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No hay órdenes de compra registradas.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

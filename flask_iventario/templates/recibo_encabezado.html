@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{# ============================================================
+   RECIBO — FORMATO CON ENCABEZADO (hoja normal)
+   ------------------------------------------------------------
+   Imprime los datos del cliente en cada página, así que no depende
+   de papel membretado:
+     4.3cm arriba / 2cm abajo / 1cm laterales
+     -> 19.59 x 21.64 cm útiles (la misma caja que el formato
+        membretado, así una misma venta pagina igual en los dos)
+   Además cada producto ocupa UNA sola línea: lo que no entra en la
+   columna se recorta con puntos suspensivos (clase "una-linea" ->
+   ver recibo.css). Así todas las filas miden igual y caben muchas
+   más por página. El nombre completo queda en el title.
+
+   El formato sin encabezado está en recibo.html.
+   ============================================================ #}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/recibo.css') }}">
+<!-- Regla @page inyectada por recibo_paginador.js: una regla @page no
+     puede depender de una clase, así que se reescribe este <style>. -->
+<style id="reglaPagina"></style>
+{% endblock %}
+
+{% block content %}
+
+<div class="row mt-4">
+    <div class="col-12 text-center mb-4 no-print">
+        <div class="row mb-3">
+            <div class="col-12 d-flex justify-content-between align-items-center">
+                <h2 class="text-primary m-0">
+                    <i class="bi bi-file-earmark-text"></i>
+                    {% if es_ajuste %}
+                        COMPROBANTE DE AJUSTE MANUAL
+                    {% elif es_devolucion %}
+                        COMPROBANTE DE DEVOLUCIÓN
+                    {% else %}
+                        GUÍA DE DESPACHO
+                    {% endif %}
+                </h2>
+                <button onclick="window.print()" class="btn btn-primary shadow">
+                    <i class="bi bi-printer"></i> Imprimir Recibo
+                </button>
+                <a href="{{ url_for('ventas.exportar_recibo_excel', referencia=referencia, formato='con-encabezado') }}"
+                   class="btn btn-success shadow ms-2" id="btnExportarExcel">
+                    <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+                </a>
+                {# Los dos formatos ya imprimen los datos del cliente, así que
+                   el botón nombra el papel, que es lo que de verdad cambia. #}
+                <a href="{{ url_for('ventas.imprimir_recibo', referencia=referencia, formato='sin-encabezado') }}"
+                   class="btn btn-outline-dark shadow ms-2" id="btnToggleHeader">
+                    <i class="bi bi-file-earmark-richtext"></i> Cambiar a hoja membretada
+                </a>
+            </div>
+        </div>
+        <a href="/ventas/historial" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver al Historial
+        </a>
+    </div>
+
+    <div class="col-12">
+        <!-- El paginador inyecta aquí una <section class="hoja"> por página -->
+        <div id="reciboPaginado"
+             data-descuento-global="{{ guia.descuento_global|float if guia.descuento_global else 0 }}"
+             data-total-bruto="{{ (guia.total|float / 1.19) + (guia.descuento_global|float if guia.descuento_global else 0) }}"
+             class="una-linea"
+             data-margen-sup="4.3"
+             data-margen-inf="2"
+             data-margen-lat="1"></div>
+    </div>
+</div>
+
+<!-- ============================================================
+     ORIGEN DE DATOS (oculto). Jinja lo renderiza una sola vez y el
+     paginador clona de aquí el encabezado, las filas y el pie.
+     ============================================================ -->
+<div id="reciboFuente">
+    <table>
+        {# Mismos anchos que recibo.html: los dos formatos comparten los
+           19.59cm útiles, así que la descripción se lleva el espacio que
+           sobra para recortar el menor número de nombres posible.
+           Los anchos van en <colgroup> y no en los <th>: con
+           table-layout:fixed manda la primera fila, y aquí esa fila es el
+           bloque de datos del cliente, que ocupa un solo colspan="5". #}
+        <colgroup id="plantillaColumnas">
+            <col style="width: 7%;">
+            <col style="width: 15%;">
+            <col style="width: 57%;">
+            <col style="width: 10.5%;">
+            <col style="width: 10.5%;">
+        </colgroup>
+        <thead id="plantillaEncabezado">
+            <!-- Datos del cliente: se repiten en TODAS las páginas -->
+            {% include '_recibo_encabezado_cliente.html' %}
+            <!-- Encabezados de columna -->
+            <tr>
+                <th style="text-align: left;">Cantidad</th>
+                <th style="text-align: left;">Código</th>
+                <th style="text-align: left;">Descripción del artículo</th>
+                {% if es_ajuste %}
+                <th style="text-align: center;">Stock Ant.</th>
+                <th style="text-align: center;">Tipo</th>
+                {% else %}
+                <th style="text-align: right;">Precio Unit.</th>
+                <th style="text-align: right;">Precio Total</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody id="plantillaFilas">
+            {% include '_recibo_filas.html' %}
+        </tbody>
+    </table>
+
+    {% with mostrar_total_grande = false %}
+        {% include '_recibo_pie.html' %}
+    {% endwith %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/recibo_paginador.js') }}"></script>
+{% endblock %}

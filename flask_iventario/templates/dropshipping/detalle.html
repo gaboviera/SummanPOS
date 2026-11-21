@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container container-main animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-file-earmark-text text-primary"></i> Detalle Dropshipping: {{ orden.referencia }}</h2>
+        <div>
+            <a href="{{ url_for('dropshipping.recibo', id=orden.id) }}" class="btn btn-outline-danger me-2" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Imprimir Comprobante</a>
+            <a href="{{ url_for('dropshipping.index') }}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+        </div>
+    </div>
+
+    <!-- Rates Info Pills -->
+    <div class="row mb-3">
+        <div class="col-12 d-flex gap-2">
+            <div class="bg-white border rounded-pill px-3 py-1 shadow-sm text-muted" style="font-size: 0.85rem;">
+                <i class="bi bi-bank text-primary"></i> Dólar BCV: <strong class="text-primary">Bs. {{ "{:,.2f}".format(tasa_bcv) }}</strong>
+            </div>
+            <div class="bg-white border rounded-pill px-3 py-1 shadow-sm text-muted" style="font-size: 0.85rem;">
+                <i class="bi bi-currency-euro text-info"></i> Euro BCV: <strong class="text-info">Bs. {{ "{:,.2f}".format(tasa_euro) }}</strong>
+            </div>
+            <div class="bg-white border rounded-pill px-3 py-1 shadow-sm text-muted" style="font-size: 0.85rem;">
+                <i class="bi bi-currency-bitcoin text-warning"></i> USDT: <strong class="text-dark">Bs. {{ "{:,.2f}".format(tasa_usdt) }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Detalles Generales y Productos -->
+        <div class="col-md-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Información General</h5>
+                    <span class="badge bg-light text-dark fs-6">{{ orden.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted text-uppercase mb-1">Cliente (Comprador)</h6>
+                            <div class="fw-bold fs-6">{{ orden.cliente.nombre }}</div>
+                            <div class="text-muted" style="font-size: 0.9em;">ID: {{ orden.cliente.identificacion }}</div>
+                            <div class="text-muted" style="font-size: 0.9em;"><i class="bi bi-telephone"></i> {{ orden.cliente.telefono or 'Sin teléfono' }}</div>
+                            <div class="text-muted mt-1" style="font-size: 0.9em;"><i class="bi bi-geo-alt-fill text-danger"></i> <strong>Dirección:</strong> {{ orden.cliente.direccion or 'Sin dirección registrada' }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted text-uppercase mb-1">Proveedor (Envía)</h6>
+                            <div class="fw-bold fs-6">{{ orden.proveedor.nombre }}</div>
+                            <div class="text-muted" style="font-size: 0.9em;">ID: {{ orden.proveedor.identificacion }}</div>
+                            <div class="text-muted" style="font-size: 0.9em;"><i class="bi bi-telephone"></i> {{ orden.proveedor.telefono or 'Sin teléfono' }}</div>
+                            <div class="text-muted mt-1" style="font-size: 0.9em;"><i class="bi bi-geo-alt-fill text-danger"></i> <strong>Dirección:</strong> {{ orden.proveedor.direccion or 'Sin dirección registrada' }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Productos en la Orden</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Cant.</th>
+                                <th class="text-end">Costo Unit.</th>
+                                <th class="text-end">Venta Unit.</th>
+                                <th class="text-end">Venta Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for det in orden.detalles %}
+                            <tr>
+                                <td>{{ det.producto.nombre }}</td>
+                                <td class="text-center">{{ det.cantidad }}</td>
+                                <td class="text-end">
+                                    ${{ "%.2f"|format(det.costo_unitario) }}
+                                    <div class="text-muted small">Bs. {{ "{:,.2f}".format((det.costo_unitario|float) * tasa_bcv) }}</div>
+                                </td>
+                                <td class="text-end">
+                                    ${{ "%.2f"|format(det.precio_venta_unitario) }}
+                                    <div class="text-muted small">Bs. {{ "{:,.2f}".format((det.precio_venta_unitario|float) * tasa_bcv) }}</div>
+                                </td>
+                                <td class="text-end fw-bold">
+                                    ${{ "%.2f"|format(det.cantidad * det.precio_venta_unitario) }}
+                                    <div class="text-muted small font-normal">Bs. {{ "{:,.2f}".format((det.cantidad * (det.precio_venta_unitario|float)) * tasa_bcv) }}</div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="4" class="text-end">
+                                    Total Pagado al Proveedor:
+                                    {% if orden.pago_proveedor_estado == 'Pagado' %}
+                                        <span class="badge bg-success ms-2">Pagado</span>
+                                    {% elif orden.pago_proveedor_estado == 'Parcial' %}
+                                        <span class="badge bg-warning text-dark ms-2">Parcial</span>
+                                        <div class="text-muted fw-normal" style="font-size: 0.85em;">Abonado: ${{ "%.2f"|format(orden.pago_proveedor_monto) if orden.pago_proveedor_monto else '0.00' }}</div>
+                                    {% else %}
+                                        <span class="badge bg-danger ms-2">Pendiente</span>
+                                    {% endif %}
+                                </th>
+                                <th class="text-end text-danger">
+                                    ${{ "%.2f"|format(orden.costo_total) }}
+                                    <div class="text-muted fw-normal" style="font-size: 0.8em;">Bs. {{ "{:,.2f}".format((orden.costo_total|float) * tasa_bcv) }} <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.7em;">BCV</span></div>
+                                </th>
+                            </tr>
+                            <tr>
+                                <th colspan="4" class="text-end">
+                                    Total Cobrado al Cliente:
+                                    {% if orden.pago_cliente_estado == 'Pagado' %}
+                                        <span class="badge bg-success ms-2">Pagado</span>
+                                    {% elif orden.pago_cliente_estado == 'Parcial' %}
+                                        <span class="badge bg-warning text-dark ms-2">Parcial</span>
+                                        <div class="text-muted fw-normal" style="font-size: 0.85em;">Abonado: ${{ "%.2f"|format(orden.pago_cliente_monto) if orden.pago_cliente_monto else '0.00' }}</div>
+                                    {% else %}
+                                        <span class="badge bg-danger ms-2">Pendiente</span>
+                                    {% endif %}
+                                </th>
+                                <th class="text-end text-primary">
+                                    ${{ "%.2f"|format(orden.venta_total) }}
+                                    <div class="text-muted fw-normal" style="font-size: 0.8em;">Bs. {{ "{:,.2f}".format((orden.venta_total|float) * tasa_bcv) }} <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.7em;">BCV</span></div>
+                                </th>
+                            </tr>
+                            <tr>
+                                <th colspan="4" class="text-end fs-5">Ganancia Neta:</th>
+                                <th class="text-end text-success fs-5">
+                                    ${{ "%.2f"|format(orden.ganancia) }}
+                                    <div class="text-success fw-normal" style="font-size: 0.75em;">Bs. {{ "{:,.2f}".format((orden.ganancia|float) * tasa_bcv) }} <span class="badge bg-success-subtle text-success border" style="font-size: 0.7em;">BCV</span></div>
+                                </th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tracking y Estado -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-geo-alt"></i> Seguimiento (Tracking)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <h6 class="text-muted text-uppercase mb-2">Estado Actual</h6>
+                        {% if orden.estado == 'Pendiente' %}
+                            <span class="badge bg-secondary fs-5">Pendiente</span>
+                        {% elif orden.estado == 'Procesando' %}
+                            <span class="badge bg-warning text-dark fs-5">Procesando</span>
+                        {% elif orden.estado == 'Enviado' %}
+                            <span class="badge bg-info text-dark fs-5">Enviado</span>
+                        {% elif orden.estado == 'Entregado' %}
+                            <span class="badge bg-success fs-5">Entregado</span>
+                        {% else %}
+                            <span class="badge bg-danger fs-5">{{ orden.estado }}</span>
+                        {% endif %}
+                    </div>
+
+                    <form id="formTracking" action="{{ url_for('dropshipping.actualizar_tracking', id=orden.id) }}" method="POST" onsubmit="return validarMontosParciales()">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Actualizar Estado</label>
+                            <select name="estado" class="form-select">
+                                <option value="Pendiente" {% if orden.estado == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                                <option value="Procesando" {% if orden.estado == 'Procesando' %}selected{% endif %}>Procesando</option>
+                                <option value="Enviado" {% if orden.estado == 'Enviado' %}selected{% endif %}>Enviado</option>
+                                <option value="Entregado" {% if orden.estado == 'Entregado' %}selected{% endif %}>Entregado</option>
+                                <option value="Cancelado" {% if orden.estado == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Empresa de Transporte</label>
+                            <input type="text" name="empresa_transporte" class="form-control" placeholder="Ej: MRW, Zoom, DHL" value="{{ orden.empresa_transporte or '' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Número de Guía / Tracking</label>
+                            <input type="text" name="numero_seguimiento" class="form-control" placeholder="Ej: 123456789" value="{{ orden.numero_seguimiento or '' }}">
+                        </div>
+
+                        <hr>
+                        
+                        <h6 class="text-muted text-uppercase mb-3 mt-3"><i class="bi bi-cash-coin"></i> Control Financiero</h6>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-primary">Cobro al Cliente</label>
+                            {% if "DROP-" in orden.referencia and "-" in orden.referencia %}
+                                <div class="alert alert-info py-2 px-3 mb-0" style="font-size: 13px;">
+                                    <i class="bi bi-info-circle-fill me-1"></i> Esta venta proviene del Punto de Venta. 
+                                    El cobro del cliente se gestiona globalmente en <strong><a href="/finanzas/cxc" class="alert-link">Finanzas > CxC</a></strong> bajo la Guía de Despacho principal.
+                                </div>
+                                <input type="hidden" name="pago_cliente_estado" value="{{ orden.pago_cliente_estado }}">
+                                <input type="hidden" name="pago_cliente_monto" value="{{ orden.pago_cliente_monto }}">
+                            {% else %}
+                                <select id="pagoClienteEstado" name="pago_cliente_estado" class="form-select border-primary" onchange="toggleMonto('pagoClienteEstado', 'montoClienteContainer')">
+                                    <option value="Pendiente" {% if orden.pago_cliente_estado == 'Pendiente' %}selected{% endif %}>Pendiente por Cobrar</option>
+                                    <option value="Parcial" {% if orden.pago_cliente_estado == 'Parcial' %}selected{% endif %}>Abono Parcial</option>
+                                    <option value="Pagado" {% if orden.pago_cliente_estado == 'Pagado' %}selected{% endif %}>Totalmente Pagado</option>
+                                </select>
+                                <div id="montoClienteContainer" class="mt-2" style="display: {% if orden.pago_cliente_estado == 'Parcial' %}block{% else %}none{% endif %};">
+                                    <input type="number" step="0.01" id="montoCliente" name="pago_cliente_monto" class="form-control form-control-sm border-primary" placeholder="Monto Abonado ($)" value="{{ orden.pago_cliente_monto if orden.pago_cliente_monto else '' }}" max="{{ orden.venta_total }}">
+                                    <small class="text-muted">Total a cobrar: ${{ "%.2f"|format(orden.venta_total) }}</small>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-danger">Pago al Proveedor</label>
+                            <select id="pagoProveedorEstado" name="pago_proveedor_estado" class="form-select border-danger" onchange="toggleMonto('pagoProveedorEstado', 'montoProveedorContainer')">
+                                <option value="Pendiente" {% if orden.pago_proveedor_estado == 'Pendiente' %}selected{% endif %}>Pendiente por Pagar</option>
+                                <option value="Parcial" {% if orden.pago_proveedor_estado == 'Parcial' %}selected{% endif %}>Abono Parcial</option>
+                                <option value="Pagado" {% if orden.pago_proveedor_estado == 'Pagado' %}selected{% endif %}>Totalmente Pagado</option>
+                            </select>
+                            <div id="montoProveedorContainer" class="mt-2" style="display: {% if orden.pago_proveedor_estado == 'Parcial' %}block{% else %}none{% endif %};">
+                                <input type="number" step="0.01" id="montoProveedor" name="pago_proveedor_monto" class="form-control form-control-sm border-danger" placeholder="Monto Abonado ($)" value="{{ orden.pago_proveedor_monto if orden.pago_proveedor_monto else '' }}" max="{{ orden.costo_total }}">
+                                <small class="text-muted">Total a pagar: ${{ "%.2f"|format(orden.costo_total) }}</small>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100"><i class="bi bi-save"></i> Guardar Seguimiento</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm mt-3">
+                <div class="card-body">
+                    <h6 class="card-title fw-bold">Link de Seguimiento Público</h6>
+                    <p class="text-muted small">Actualmente el seguimiento es privado (solo uso administrativo).</p>
+                    <input type="text" class="form-control form-control-sm bg-light" value="No habilitado" disabled>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleMonto(selectId, containerId) {
+    const select = document.getElementById(selectId);
+    const container = document.getElementById(containerId);
+    if (select.value === 'Parcial') {
+        container.style.display = 'block';
+    } else {
+        container.style.display = 'none';
+        container.querySelector('input').value = '';
+    }
+}
+
+function validarMontosParciales() {
+    const estadoCliente = document.getElementById('pagoClienteEstado').value;
+    const estadoProveedor = document.getElementById('pagoProveedorEstado').value;
+
+    if (estadoCliente === 'Parcial') {
+        const montoInput = document.getElementById('montoCliente');
+        const max = parseFloat(montoInput.max);
+        const value = parseFloat(montoInput.value);
+        if (value > max) {
+            alert(`Error: El abono al cliente ($${value}) no puede superar el total a cobrar ($${max}).`);
+            return false;
+        }
+    }
+
+    if (estadoProveedor === 'Parcial') {
+        const montoInput = document.getElementById('montoProveedor');
+        const max = parseFloat(montoInput.max);
+        const value = parseFloat(montoInput.value);
+        if (value > max) {
+            alert(`Error: El abono al proveedor ($${value}) no puede superar el total a pagar ($${max}).`);
+            return false;
+        }
+    }
+    
+    return true;
+}
+</script>
+{% endblock %}

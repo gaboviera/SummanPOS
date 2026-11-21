@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12">
+        <h1 class="display-5 fw-bold text-primary mb-4 text-center">
+            <i class="bi bi-clock-history"></i> Historial de Movimientos
+        </h1>
+
+        <!-- Tarjeta de Filtros -->
+        <div class="card border-0 shadow mt-3 rounded-4 overflow-hidden mb-4">
+            <div class="card-body bg-light">
+                <form method="GET" action="{{ url_for('inventario.historial_transacciones') }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label text-dark fw-bold">Buscar (Ref o Producto)</label>
+                            <input type="text" name="q" class="form-control" placeholder="Ej. DEV-... o Bujía" value="{{ q }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label text-dark fw-bold">Fecha Inicio</label>
+                            <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label text-dark fw-bold">Fecha Fin</label>
+                            <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-dark fw-bold">Tipo de Movimiento</label>
+                            <select name="tipo" class="form-select">
+                                <option value="">Todos los Tipos</option>
+                                <option value="Ingreso (Carga Masiva)" {% if tipo == 'Ingreso (Carga Masiva)' %}selected{% endif %}>Ingreso (Carga Masiva)</option>
+                                <option value="Venta" {% if tipo == 'Venta' %}selected{% endif %}>Venta</option>
+                                <option value="Devolución/Anulación" {% if tipo == 'Devolución/Anulación' %}selected{% endif %}>Devolución/Anulación</option>
+                                <option value="Ajuste" {% if tipo == 'Ajuste' %}selected{% endif %}>Ajuste Manual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel"></i> Filtrar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow rounded-4 overflow-hidden">
+            <div
+                class="card-header bg-white border-bottom d-flex justify-content-between align-items-center pt-3">
+                <h4 class="text-primary m-0"><i class="bi bi-card-list"></i> Últimas transacciones</h4>
+                
+                <form id="formAccionMasivaTrans" action="/transacciones/accion-masiva" method="POST" class="m-0">
+                   <input type="hidden" name="ids_seleccionados" id="idsSeleccionadosInputTrans">
+                   <input type="hidden" name="accion" id="accionMasivaInputTrans">
+                   <div class="dropdown">
+                     <button class="btn btn-sm btn-outline-warning dropdown-toggle" type="button" id="dropdownAccionesTrans" data-bs-toggle="dropdown" aria-expanded="false">
+                       <i class="bi bi-list-check"></i> Acciones Masivas
+                     </button>
+                     <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="dropdownAccionesTrans">
+                       <li><button class="dropdown-item" type="button" onclick="ejecutarAccionMasivaTrans('excel')"><i class="bi bi-file-earmark-excel text-success"></i> Exportar a Excel</button></li>
+                       <li><button class="dropdown-item" type="button" onclick="ejecutarAccionMasivaTrans('pdf')"><i class="bi bi-file-earmark-pdf text-danger"></i> Exportar a PDF</button></li>
+                     </ul>
+                   </div>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0 bg-white">
+                    <thead class="bg-light text-dark border-bottom">
+                        <tr>
+                            <th class="text-center" style="width: 40px;">
+                                <input type="checkbox" class="form-check-input" id="checkAllTrans">
+                            </th>
+                            <th>Nº Ticket</th>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Producto</th>
+                            <th class="text-center">Stock Anterior</th>
+                            <th class="text-center">Cant. Movida</th>
+                            <th class="text-center">Stock Actual</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if transacciones.items %}
+                        {% for t in transacciones.items %}
+                        <tr>
+                            <td class="text-center">
+                                <input type="checkbox" class="form-check-input check-item-trans" value="{{ t.id }}">
+                            </td>
+                            <td class="text-dark fw-bold">
+                                {% if t.referencia %}
+                                    {% if t.referencia.startswith('OC-') %}
+                                    <a href="/compras/recibo/{{ t.referencia }}" class="btn btn-sm btn-outline-success" title="Ver Orden de Compra" target="_blank">
+                                        <i class="bi bi-file-earmark-text"></i> {{ t.referencia }}
+                                    </a>
+                                    {% elif t.referencia.startswith('DROP-') %}
+                                    <a href="/dropshipping/recibo_ref/{{ t.referencia }}" class="btn btn-sm btn-outline-danger" title="Ver Comprobante Dropshipping" target="_blank">
+                                        <i class="bi bi-airplane-engines"></i> {{ t.referencia }}
+                                    </a>
+                                    {% else %}
+                                    <a href="/ventas/recibo/{{ t.referencia }}" class="btn btn-sm btn-outline-primary" title="Reimprimir Guía" target="_blank">
+                                        <i class="bi bi-printer"></i> {{ t.referencia }}
+                                    </a>
+                                    {% endif %}
+                                {% else %}
+                                    #{{ t.id }}
+                                {% endif %}
+                            </td>
+                            <td>{{ t.fecha.strftime('%Y-%m-%d %H:%M') if t.fecha else 'N/A' }}</td>
+                            <td>
+                                {% if t.tipo == 'Venta' %}
+                                <span class="badge bg-danger"><i class="bi bi-box-arrow-right"></i> Salida
+                                    (Venta)</span>
+                                {% elif t.tipo == 'Compra' %}
+                                <span class="badge bg-success"><i class="bi bi-box-arrow-in-left"></i> Entrada
+                                    (Compra)</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ t.tipo }}</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Usamos la nueva relación para obtener el nombre del repuesto -->
+                            <td class="text-dark fw-bold">
+                                {{ t.producto.nombre if t.producto else 'Desconocido (ID: ' ~ t.producto_id ~ ')' }}
+                            </td>
+
+                            <td class="text-center text-muted">
+                                {{ t.stock_anterior if t.stock_anterior != None else '--' }}
+                            </td>
+
+                            <td class="text-center fw-bold fs-6">
+                                <span class="badge bg-light text-dark">{{ t.cantidad }}</span>
+                            </td>
+
+                            <td class="text-center fw-bold text-primary">
+                                {{ t.producto.cantidad if t.producto else '--' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">
+                                <h4>No hay movimientos registrados.</h4>
+                                <p>Las ventas aparecerán aquí.</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+        
+        <!-- Paginador -->
+        {% if transacciones.pages > 1 %}
+        <nav class="mt-4" aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            <li class="page-item {% if not transacciones.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('inventario.historial_transacciones', page=transacciones.prev_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, tipo=tipo) }}">Anterior</a>
+            </li>
+            
+            {% for page_num in transacciones.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if page_num %}
+                <li class="page-item {% if transacciones.page == page_num %}active{% endif %}">
+                  <a class="page-link" href="{{ url_for('inventario.historial_transacciones', page=page_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, tipo=tipo) }}">{{ page_num }}</a>
+                </li>
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+            
+            <li class="page-item {% if not transacciones.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('inventario.historial_transacciones', page=transacciones.next_num, q=q, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, tipo=tipo) }}">Siguiente</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+        
+    </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    // Lógica de Selección Múltiple
+    const checkAll = document.getElementById('checkAllTrans');
+    const checkItems = document.querySelectorAll('.check-item-trans');
+
+    if(checkAll) {
+        checkAll.addEventListener('change', function() {
+            checkItems.forEach(chk => chk.checked = this.checked);
+        });
+    }
+
+    window.ejecutarAccionMasivaTrans = function(accion) {
+        const seleccionados = Array.from(document.querySelectorAll('.check-item-trans:checked')).map(chk => chk.value);
+        if (seleccionados.length === 0) {
+            alert('Por favor selecciona al menos una transacción.');
+            return;
+        }
+        document.getElementById('idsSeleccionadosInputTrans').value = seleccionados.join(',');
+        document.getElementById('accionMasivaInputTrans').value = accion;
+        
+        const form = document.getElementById('formAccionMasivaTrans');
+        form.target = '_blank';
+        form.submit();
+    };
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center text-center mt-4">
+  <div class="col-md-11">
+    <h1 class="display-5 fw-bold text-white mb-4">Panel de Control de Inventario</h1>
+    
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <a href="{{ url_for('inventario.nuevo_producto') }}" class="btn btn-primary shadow-sm px-4 rounded-pill">
+          <i class="bi bi-plus-circle"></i> Nuevo Producto
+        </a>
+
+        <a href="/importar" class="btn btn-success shadow-sm px-4 rounded-pill ms-2">
+          Importar desde Excel
+        </a>
+        <a href="/descargar-pdf" target="_blank" class="btn btn-danger shadow-sm px-4 rounded-pill ms-2">
+          <i class="bi bi-file-earmark-pdf"></i> Generar Reporte PDF
+        </a>
+        
+        {% if current_user.rol.nombre == 'Administrador' %}
+            {% if eliminados == '1' %}
+            <a href="{{ url_for('inventario.productos') }}" class="btn btn-secondary shadow-sm px-4 rounded-pill ms-2">
+              <i class="bi bi-arrow-left"></i> Volver a Productos
+            </a>
+            {% else %}
+            <a href="{{ url_for('inventario.productos', eliminados='1') }}" class="btn btn-warning shadow-sm px-4 rounded-pill ms-2">
+              <i class="bi bi-trash"></i> Papelera
+            </a>
+            {% endif %}
+        {% endif %}
+      </div>
+
+      <!-- Panel BCV -->
+      <div class="bg-dark border border-secondary rounded-pill px-4 py-2 d-flex align-items-center shadow-sm">
+        <span class="text-light me-3">
+          <i class="bi bi-bank"></i> Tasa BCV:
+          {% if tasa_bcv %}
+          <strong class="text-success fs-5">{{ "%.2f"|format(tasa_bcv.tasa) }} Bs.</strong>
+          {% else %}
+          <span class="text-warning">No registrada</span>
+          {% endif %}
+        </span>
+        <a href="/actualizar-tasa" class="btn btn-outline-info btn-sm rounded-circle" title="Actualizar Manualmente">
+          🔄
+        </a>
+      </div>
+    </div>
+
+    <!-- Controles de Tabla: Buscador, Acciones Masivas y Columnas -->
+    <div class="row mb-3 mt-4">
+      <div class="col-md-5">
+        <form action="/productos" method="GET" class="d-flex">
+          <input type="text" name="q" value="{{ query_str or '' }}" class="form-control bg-dark text-white border-secondary" placeholder="Buscar producto...">
+          <button type="submit" class="btn btn-outline-primary ms-2"><i class="bi bi-search"></i></button>
+        </form>
+      </div>
+      <div class="col-md-3">
+        <form id="formAccionMasiva" action="/productos/accion-masiva" method="POST">
+           <input type="hidden" name="ids_seleccionados" id="idsSeleccionadosInput">
+           <input type="hidden" name="accion" id="accionMasivaInput">
+           <div class="dropdown w-100">
+             <button class="btn btn-outline-warning w-100 dropdown-toggle" type="button" id="dropdownAcciones" data-bs-toggle="dropdown" aria-expanded="false">
+               <i class="bi bi-list-check"></i> Acciones Masivas
+             </button>
+             <ul class="dropdown-menu dropdown-menu-dark w-100" aria-labelledby="dropdownAcciones">
+               <li><button class="dropdown-item" type="button" onclick="ejecutarAccionMasiva('excel')"><i class="bi bi-file-earmark-excel text-success"></i> Exportar Seleccionados a Excel</button></li>
+               <li><button class="dropdown-item" type="button" onclick="ejecutarAccionMasiva('pdf')"><i class="bi bi-file-earmark-pdf text-danger"></i> Exportar Seleccionados a PDF</button></li>
+               <li><button class="dropdown-item" type="button" onclick="ejecutarAccionMasiva('barcodes')"><i class="bi bi-upc-scan text-info"></i> Códigos de Barras</button></li>
+               <li><hr class="dropdown-divider border-secondary"></li>
+               <li><button class="dropdown-item" type="button" onclick="ejecutarAccionMasiva('excel_all')"><i class="bi bi-file-earmark-excel-fill text-success"></i> Exportar Catálogo Completo (Excel)</button></li>
+               <li><button class="dropdown-item" type="button" onclick="ejecutarAccionMasiva('pdf_all')"><i class="bi bi-file-earmark-pdf-fill text-danger"></i> Exportar Catálogo Completo (PDF)</button></li>
+               <li><hr class="dropdown-divider border-secondary"></li>
+               <li><button class="dropdown-item text-danger" type="button" onclick="ejecutarAccionMasiva('delete')"><i class="bi bi-trash"></i> Eliminar Seleccionados</button></li>
+             </ul>
+           </div>
+        </form>
+      </div>
+      <div class="col-md-4 text-end">
+        <div class="dropdown">
+          <button class="btn btn-secondary dropdown-toggle w-100" type="button" id="dropdownColumnas" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-layout-three-columns"></i> Mostrar/Ocultar Columnas
+          </button>
+          <ul class="dropdown-menu dropdown-menu-dark p-2" aria-labelledby="dropdownColumnas">
+            <li><label class="dropdown-item"><input type="checkbox" class="col-toggle me-2" data-col="1" checked> Código</label></li>
+            <li><label class="dropdown-item"><input type="checkbox" class="col-toggle me-2" data-col="2" checked> Nombre</label></li>
+            <li><label class="dropdown-item"><input type="checkbox" class="col-toggle me-2" data-col="3" checked> Categoría</label></li>
+            <li><label class="dropdown-item"><input type="checkbox" class="col-toggle me-2" data-col="4" checked> Atributos</label></li>
+            <li><label class="dropdown-item"><input type="checkbox" class="col-toggle me-2" data-col="5" checked> Cantidad</label></li>
+            <li><label class="dropdown-item"><input type="checkbox" class="col-toggle me-2" data-col="6" checked> Precio ($)</label></li>
+            <li><label class="dropdown-item"><input type="checkbox" class="col-toggle me-2" data-col="7" checked> Precio (Bs)</label></li>
+            <li><label class="dropdown-item"><input type="checkbox" class="col-toggle me-2" data-col="8" checked> Acciones</label></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary shadow">
+      <div class="card-body p-0">
+        <table class="table table-dark table-striped table-hover align-middle mb-0" id="tablaProductos">
+          <thead class="table-dark">
+            <tr>
+              <th class="text-center" style="width: 40px;">
+                  <input type="checkbox" class="form-check-input" id="checkAll">
+              </th>
+              <th>Código</th>
+              <th>Nombre</th>
+              <th>Categoría</th>
+              <th>Atributos</th>
+              <th>Cant.</th>
+              <th>Precio ($)</th>
+              <th class="text-success">Precio (Bs)</th>
+              <th class="text-center">Acciones</th>
+
+            </tr>
+          </thead>
+          <tbody>
+            {% if productos.items %}
+            {% for producto in productos.items %}
+            <tr>
+              <td class="text-center">
+                  <input type="checkbox" class="form-check-input check-item" value="{{ producto.id }}">
+              </td>
+              <td class="text-secondary small">{{ producto.descripcion.replace('CÓDIGO: ', '') }}</td>
+              <td class="text-primary fw-bold">{{ producto.nombre }}</td>
+
+              <td>
+                <!-- Si el producto tiene categoría, la mostramos -->
+                {% if producto.categoria %}
+                <span class="badge bg-secondary">{{ producto.categoria.nombre }}</span>
+                {% else %}
+                <span class="badge bg-secondary text-muted">Sin Categoría</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <!-- Ciclo mágico: Imprime todos los atributos que tenga (Marca, Color, etc) -->
+                {% for val in producto.valores %}
+                <span class="badge bg-info text-dark">{{ val.atributo.nombre }}: {{ val.valor }}</span>
+                {% endfor %}
+              </td>
+
+              <td><span class="badge bg-light text-dark fs-6">{{ producto.cantidad }}</span></td>
+              <td>${{ "%.2f"|format(producto.precio) }}</td>
+              <td class="text-success fw-bold">
+                {% if tasa_bcv %}
+                Bs {{ "%.2f"|format(producto.precio * tasa_bcv.tasa) }}
+                {% else %}
+                ---
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <div class="btn-group" role="group">
+                  {% if eliminados == '1' %}
+                  <form action="{{ url_for('inventario.restaurar_producto', id=producto.id) }}" method="POST"
+                    class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas restaurar este producto?');">
+                    <button type="submit" class="btn btn-outline-success btn-sm" title="Restaurar">
+                      <i class="bi bi-arrow-counterclockwise"></i> Restaurar
+                    </button>
+                  </form>
+                  {% else %}
+                  <a href="{{ url_for('inventario.editar_producto', id=producto.id) }}"
+                    class="btn btn-outline-warning btn-sm" title="Editar">
+                    ✏️
+                  </a>
+                  <form action="{{ url_for('inventario.eliminar_producto', id=producto.id) }}" method="POST"
+                    class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este producto?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
+                      🗑️
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+              <td colspan="8" class="text-center text-muted py-5">
+                <h4>No hay productos en el inventario.</h4>
+                <p>¡Haz clic en "Nuevo Producto" o "Importar desde Excel" para empezar!</p>
+              </td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Paginador -->
+    {% if productos.pages > 1 %}
+    <nav class="mt-4" aria-label="Page navigation">
+      <ul class="pagination justify-content-center pagination-dark">
+        <!-- Anterior -->
+        <li class="page-item {% if not productos.has_prev %}disabled{% endif %}">
+          <a class="page-link bg-dark text-white border-secondary" href="{{ url_for('inventario.productos', page=productos.prev_num, q=query_str) }}">Anterior</a>
+        </li>
+        
+        <!-- Números (Mostramos ventana dinámica) -->
+        {% for page_num in productos.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if page_num %}
+            <li class="page-item {% if productos.page == page_num %}active{% endif %}">
+              <a class="page-link {% if productos.page == page_num %}bg-primary text-white border-primary{% else %}bg-dark text-white border-secondary{% endif %}" href="{{ url_for('inventario.productos', page=page_num, q=query_str) }}">{{ page_num }}</a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link bg-dark text-secondary border-secondary">...</span></li>
+          {% endif %}
+        {% endfor %}
+        
+        <!-- Siguiente -->
+        <li class="page-item {% if not productos.has_next %}disabled{% endif %}">
+          <a class="page-link bg-dark text-white border-secondary" href="{{ url_for('inventario.productos', page=productos.next_num, q=query_str) }}">Siguiente</a>
+        </li>
+      </ul>
+    </nav>
+    {% endif %}
+    
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const filas = document.querySelectorAll('#tablaProductos tbody tr');
+
+    // Lógica de Selección Múltiple
+    const checkAll = document.getElementById('checkAll');
+    const checkItems = document.querySelectorAll('.check-item');
+
+    if(checkAll) {
+        checkAll.addEventListener('change', function() {
+            checkItems.forEach(chk => chk.checked = this.checked);
+        });
+    }
+
+    window.ejecutarAccionMasiva = function(accion) {
+        const seleccionados = Array.from(document.querySelectorAll('.check-item:checked')).map(chk => chk.value);
+        
+        // Si no es una exportación total, validar que haya seleccionados
+        if (accion !== 'excel_all' && accion !== 'pdf_all') {
+            if (seleccionados.length === 0) {
+                alert('Por favor selecciona al menos un producto.');
+                return;
+            }
+        }
+        
+        if (accion === 'delete' && !confirm('¿Estás seguro de eliminar los productos seleccionados?')) {
+            return;
+        }
+        
+        document.getElementById('idsSeleccionadosInput').value = seleccionados.join(',');
+        document.getElementById('accionMasivaInput').value = accion;
+        
+        const form = document.getElementById('formAccionMasiva');
+        if (accion.includes('excel') || accion.includes('pdf') || accion === 'barcodes') {
+             form.target = '_blank';
+        } else {
+             form.target = '_self';
+        }
+        
+        form.submit();
+    };
+
+    // Lógica de Ocultar/Mostrar Columnas
+    const checkboxes = document.querySelectorAll('.col-toggle');
+    const tabla = document.getElementById('tablaProductos');
+
+    checkboxes.forEach(chk => {
+      // Evitar que el dropdown se cierre al hacer clic en el checkbox
+      chk.parentElement.addEventListener('click', function(e) {
+        e.stopPropagation();
+      });
+
+      chk.addEventListener('change', function() {
+        const colIdx = parseInt(this.getAttribute('data-col'));
+        const mostrar = this.checked;
+
+        // Ocultar/Mostrar el encabezado (th)
+        const thead_th = tabla.querySelector(`thead tr th:nth-child(${colIdx + 1})`);
+        if (thead_th) {
+          thead_th.style.display = mostrar ? '' : 'none';
+        }
+
+        // Ocultar/Mostrar las celdas (td) en cada fila
+        filas.forEach(fila => {
+          const td = fila.querySelector(`td:nth-child(${colIdx + 1})`);
+          if (td) {
+            td.style.display = mostrar ? '' : 'none';
+          }
+        });
+      });
+    });
+  });
+</script>
+{% endblock %}

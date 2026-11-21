@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12 d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-5 fw-bold text-primary m-0">
+            <i class="bi bi-people-fill text-primary"></i> Directorio de Contactos
+        </h1>
+        <div>
+            <a href="{{ url_for('contactos.exportar_excel', q=q, tipo=tipo_filtro, tasa=tasa_filtro) }}" class="btn btn-outline-success btn-lg me-2">
+                <i class="bi bi-file-earmark-excel"></i> Excel
+            </a>
+            <a href="{{ url_for('contactos.exportar_pdf', q=q, tipo=tipo_filtro, tasa=tasa_filtro) }}" class="btn btn-outline-danger btn-lg me-2">
+                <i class="bi bi-file-earmark-pdf"></i> PDF
+            </a>
+            <button class="btn btn-primary btn-lg" onclick="abrirModalNuevo()">
+                <i class="bi bi-person-plus-fill"></i> Nuevo Contacto
+            </button>
+        </div>
+    </div>
+
+    <!-- Tarjeta de Filtros -->
+    <div class="col-12 mb-4">
+        <div class="card border-0 shadow rounded-4 overflow-hidden">
+            <div class="card-body bg-light">
+                <form method="GET" action="{{ url_for('contactos.index') }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label text-dark fw-bold">Buscar Contacto</label>
+                            <input type="text" name="q" class="form-control" placeholder="Buscar por Nombre, RIF/CI o Correo..." value="{{ q }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-dark fw-bold">Filtrar por Tipo</label>
+                            <select name="tipo" class="form-select">
+                                <option value="todos" {% if tipo_filtro == 'todos' %}selected{% endif %}>Todos los Contactos</option>
+                                <option value="clientes" {% if tipo_filtro == 'clientes' %}selected{% endif %}>Solo Clientes</option>
+                                <option value="proveedores" {% if tipo_filtro == 'proveedores' %}selected{% endif %}>Solo Proveedores</option>
+                                <option value="usuarios" {% if tipo_filtro == 'usuarios' %}selected{% endif %}>Contacto Usuario</option>
+                                <option value="sin_definir" {% if tipo_filtro == 'sin_definir' %}selected{% endif %}>Sin Definir</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-dark fw-bold"><i class="bi bi-tag-fill text-primary me-1"></i> Tasa / Tarifa</label>
+                            <select name="tasa" class="form-select">
+                                <option value="todas" {% if tasa_filtro == 'todas' %}selected{% endif %}>Todas las Tasas / Tarifas</option>
+                                <option value="sin_tarifa" {% if tasa_filtro == 'sin_tarifa' %}selected{% endif %}>Sin tarifa (Estándar)</option>
+                                {% for lp in listas_precios %}
+                                <option value="{{ lp.id }}" {% if tasa_filtro == (lp.id|string) %}selected{% endif %}>{{ lp.nombre }} ({{ lp.moneda }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filtrar</button>
+                            {% if q or tipo_filtro != 'todos' or (tasa_filtro and tasa_filtro != 'todas') %}
+                            <a href="{{ url_for('contactos.index') }}" class="btn btn-outline-secondary" title="Limpiar Filtros"><i class="bi bi-x-circle"></i></a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensajes Flash -->
+    <div class="col-12 mb-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Tabla de Contactos -->
+    <div class="col-12">
+        <div class="card border-0 shadow mt-3 rounded-4 overflow-hidden">
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-hover align-middle mb-0 bg-white">
+                    <thead class="bg-light text-dark border-bottom">
+                        <tr>
+                            <th>Nombre o Razón Social</th>
+                            <th>RIF / CI</th>
+                            <th>Correo</th>
+                            <th>Dirección</th>
+                            <th>Ciudad</th>
+                            <th>Teléfono</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if contactos.items %}
+                        {% for c in contactos.items %}
+                        <tr>
+                            <td class="fw-bold text-dark">
+                                {{ c.nombre }}<br>
+                                {% if c.tipo in ['Contacto Usuario', 'Usuario'] or c.rol_sistema %}
+                                    <span class="badge bg-secondary" style="font-size: 11px;"><i class="bi bi-person-badge"></i> {{ c.rol_sistema or 'Contacto Usuario' }}</span>
+                                {% endif %}
+                                {% if c.es_cliente and c.tipo not in ['Contacto Usuario', 'Usuario', 'Sin Definir'] %}
+                                    <span class="badge bg-success" style="font-size: 11px;"><i class="bi bi-cart"></i> Cliente</span>
+                                {% endif %}
+                                {% if c.es_proveedor and c.tipo not in ['Contacto Usuario', 'Usuario', 'Sin Definir'] %}
+                                    <span class="badge bg-info text-dark" style="font-size: 11px;"><i class="bi bi-truck"></i> Proveedor</span>
+                                {% endif %}
+                                {% if c.tipo == 'Sin Definir' or (not c.es_cliente and not c.es_proveedor and not c.rol_sistema and c.tipo not in ['Contacto Usuario', 'Usuario']) %}
+                                    <span class="badge bg-warning text-dark" style="font-size: 11px;"><i class="bi bi-question-circle"></i> Sin Definir</span>
+                                {% endif %}
+                                {% if c.lista_precio %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 11px;" title="Tarifa preferencial para ventas">
+                                        <i class="bi bi-tag-fill me-1"></i>{{ c.lista_precio.nombre }} ({{ c.lista_precio.moneda }})
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-primary">{{ c.identificacion }}</td>
+                            <td>{{ c.correo or 'N/A' }}</td>
+                            <td>{{ c.direccion or 'N/A' }}</td>
+                            <td>{{ c.ciudad or 'N/A' }}</td>
+                            <td>{{ c.telefono or 'N/A' }}</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-warning" title="Editar"
+                                        onclick="abrirModalEditar({{ c.id }}, '{{ c.identificacion }}', '{{ c.nombre }}', '{{ c.correo or '' }}', '{{ c.direccion }}', '{{ c.ciudad }}', '{{ c.telefono }}', '{{ c.tipo or 'Cliente' }}', {{ c.lista_precio_id or 0 }})">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                
+                                {% if current_user.rol and current_user.rol.nombre in ['Super Admin', 'Administrador'] and c.correo %}
+                                <form action="/contactos/generar_usuario/{{ c.id }}" method="POST" class="d-inline" onsubmit="return confirm('¿Crear un usuario con el correo {{ c.correo }}? Su contraseña será 123456');">
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Generar Usuario">
+                                        <i class="bi bi-person-lock"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                
+                                <form action="/contactos/eliminar/{{ c.id }}" method="POST" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar este contacto?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <h4>No hay contactos encontrados.</h4>
+                                <p>Prueba con otros términos de búsqueda o registra un nuevo contacto.</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Paginador -->
+        {% if contactos.pages > 1 %}
+        <nav class="mt-4" aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            <li class="page-item {% if not contactos.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('contactos.index', page=contactos.prev_num, q=q, tipo=tipo_filtro, tasa=tasa_filtro) }}">Anterior</a>
+            </li>
+            
+            {% for page_num in contactos.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if page_num %}
+                <li class="page-item {% if contactos.page == page_num %}active{% endif %}">
+                  <a class="page-link" href="{{ url_for('contactos.index', page=page_num, q=q, tipo=tipo_filtro, tasa=tasa_filtro) }}">{{ page_num }}</a>
+                </li>
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+            
+            <li class="page-item {% if not contactos.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('contactos.index', page=contactos.next_num, q=q, tipo=tipo_filtro, tasa=tasa_filtro) }}">Siguiente</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Modal para Crear / Editar -->
+<div class="modal fade" id="contactoModal" tabindex="-1" aria-labelledby="contactoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-start">
+      <div class="modal-header">
+        <h5 class="modal-title" id="contactoModalLabel">Nuevo Contacto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="/contactos/guardar" method="POST">
+          <div class="modal-body">
+              {{ form.hidden_tag() }}
+              
+              <div class="mb-3">
+                  <label class="form-label fw-bold">Tipo de Contacto *</label>
+                  {{ form.tipo(class="form-select", id="contacto_tipo", required=True) }}
+                  <div class="form-text text-muted">Selecciona si es Cliente, Proveedor o Ambos.</div>
+              </div>
+              <div class="mb-3">
+                  <label class="form-label">Nombre o Razón Social *</label>
+                  {{ form.nombre(class="form-control", id="contacto_nombre", required=True) }}
+              </div>
+              <div class="mb-3">
+                  <label class="form-label">RIF / CI *</label>
+                  {{ form.identificacion(class="form-control", id="contacto_identificacion", required=True) }}
+              </div>
+              <div class="mb-3">
+                  <label class="form-label">Correo Electrónico</label>
+                  {{ form.correo(class="form-control", id="contacto_correo", placeholder="ejemplo@correo.com") }}
+              </div>
+              <div class="mb-3">
+                  <label class="form-label">Dirección Fiscal</label>
+                  {{ form.direccion(class="form-control", id="contacto_direccion") }}
+              </div>
+              <div class="mb-3">
+                  <label class="form-label">Ciudad</label>
+                  {{ form.ciudad(class="form-control", id="contacto_ciudad") }}
+              </div>
+              <div class="mb-3">
+                  <label class="form-label">Teléfono</label>
+                  {{ form.telefono(class="form-control", id="contacto_telefono") }}
+              </div>
+              <div class="mb-3">
+                  <label class="form-label fw-bold"><i class="bi bi-tag-fill text-primary me-1"></i> Tasa / Tarifa Predeterminada en Ventas</label>
+                  <select name="lista_precio_id" class="form-select" id="contacto_lista_precio_id">
+                      <option value="0">-- Sin preferencia (Estándar de caja) --</option>
+                      {% for lp in listas_precios %}
+                      <option value="{{ lp.id }}">{{ lp.nombre }} ({{ lp.moneda }})</option>
+                      {% endfor %}
+                  </select>
+                  <div class="form-text text-muted">Al facturarle a este cliente en el POS, el carrito se ajustará automáticamente a esta tarifa.</div>
+              </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+    let myModal;
+    document.addEventListener("DOMContentLoaded", function() {
+        const modalElement = document.getElementById('contactoModal');
+        myModal = new bootstrap.Modal(modalElement);
+    });
+
+    function abrirModalNuevo() {
+        document.getElementById('contactoModalLabel').innerText = 'Nuevo Contacto';
+        document.getElementById('contacto_id').value = '';
+        if (document.getElementById('contacto_tipo')) document.getElementById('contacto_tipo').value = 'Cliente';
+        document.getElementById('contacto_nombre').value = '';
+        document.getElementById('contacto_identificacion').value = '';
+        document.getElementById('contacto_correo').value = '';
+        document.getElementById('contacto_direccion').value = '';
+        document.getElementById('contacto_ciudad').value = '';
+        document.getElementById('contacto_telefono').value = '';
+        if (document.getElementById('contacto_lista_precio_id')) document.getElementById('contacto_lista_precio_id').value = '0';
+        myModal.show();
+    }
+
+    function abrirModalEditar(id, rnc, nombre, correo, direccion, ciudad, telefono, tipo, lista_precio_id) {
+        document.getElementById('contactoModalLabel').innerText = 'Editar Contacto';
+        document.getElementById('contacto_id').value = id;
+        if (document.getElementById('contacto_tipo')) document.getElementById('contacto_tipo').value = (tipo && tipo !== 'None') ? tipo : 'Cliente';
+        document.getElementById('contacto_identificacion').value = rnc;
+        document.getElementById('contacto_nombre').value = nombre;
+        document.getElementById('contacto_correo').value = correo;
+        document.getElementById('contacto_direccion').value = (direccion == 'None' ? '' : direccion);
+        document.getElementById('contacto_ciudad').value = (ciudad == 'None' ? '' : ciudad);
+        document.getElementById('contacto_telefono').value = (telefono == 'None' ? '' : telefono);
+        if (document.getElementById('contacto_lista_precio_id')) {
+            document.getElementById('contacto_lista_precio_id').value = (lista_precio_id && lista_precio_id != '0') ? String(lista_precio_id) : '0';
+        }
+        myModal.show();
+    }
+</script>
+{% endblock %}

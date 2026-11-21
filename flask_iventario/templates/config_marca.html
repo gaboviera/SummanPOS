@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="text-primary"><i class="bi bi-palette-fill"></i> Identidad Corporativa</h2>
+        <p class="text-secondary">Configura el logo y favicon de la marca.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-image"></i> Imágenes de la Marca</h5>
+            </div>
+            <div class="card-body bg-white">
+                <form method="POST" action="{{ url_for('configuracion.marca') }}">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        <label for="logo_url" class="form-label text-dark fw-bold">URL del Logo Principal</label>
+                        {{ form.logo_url(class="form-control", id="logo_url", placeholder="Ej: https://tudominio.com/logo.png") }}
+                        <div class="form-text">Recomendado: Imagen horizontal con fondo transparente (PNG).</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="favicon_url" class="form-label text-dark fw-bold">URL del Favicon (Ícono)</label>
+                        {{ form.favicon_url(class="form-control", id="favicon_url", placeholder="Ej: https://tudominio.com/favicon.ico") }}
+                        <div class="form-text">Recomendado: Imagen cuadrada (ICO o PNG) para la pestaña del navegador.</div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-save"></i> Guardar Cambios
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-eye"></i> Vista Previa</h5>
+            </div>
+            <div class="card-body bg-light d-flex flex-column align-items-center justify-content-center">
+                {% if logo_url %}
+                    <h6 class="text-muted mb-3">Logo Principal:</h6>
+                    <img src="{{ logo_url }}" alt="Logo" class="img-fluid mb-4" style="max-height: 100px;">
+                {% else %}
+                    <div class="text-muted text-center mb-4">
+                        <i class="bi bi-card-image fs-1 d-block mb-2"></i>
+                        <span>Sin logo configurado</span>
+                    </div>
+                {% endif %}
+                
+                {% if favicon_url %}
+                    <h6 class="text-muted mb-3">Favicon:</h6>
+                    <img src="{{ favicon_url }}" alt="Favicon" class="img-fluid" style="max-height: 32px; border: 1px solid #ccc; padding: 2px;">
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <h4 class="text-primary mb-3"><i class="bi bi-droplet-fill"></i> Paleta de Colores Corporativa (Summantech)</h4>
+        <p class="text-muted">Estos son los colores base extraídos de la guía de marca, utilizados para personalizar la interfaz gráfica.</p>
+        
+        <div class="row g-3">
+            <!-- Paleta Primaria (Purple) -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom-0 fw-bold">Summantech Purple</div>
+                    <div class="card-body p-0 d-flex flex-column">
+                        <div class="p-3 text-white text-center" style="background-color: var(--st-purple-900);">900 (#261640)</div>
+                        <div class="p-3 text-white text-center" style="background-color: var(--st-purple-700);">700 MAIN (#4B2C7F)</div>
+                        <div class="p-3 text-white text-center" style="background-color: var(--st-purple-500);">500 (#8A59C4)</div>
+                        <div class="p-3 text-dark text-center" style="background-color: var(--st-purple-50);">50 (#F4F0FA)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Paleta Neutral (Grey) -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom-0 fw-bold">Neutral Grey</div>
+                    <div class="card-body p-0 d-flex flex-column">
+                        <div class="p-3 text-white text-center" style="background-color: var(--st-neutral-900);">900 (#292929)</div>
+                        <div class="p-3 text-white text-center" style="background-color: var(--st-neutral-700);">700 MAIN (#4A4A4A)</div>
+                        <div class="p-3 text-white text-center" style="background-color: var(--st-neutral-500);">500 (#757575)</div>
+                        <div class="p-3 text-dark text-center" style="background-color: var(--st-neutral-100);">100 (#E0E0E0)</div>
+                        <div class="p-3 text-dark text-center" style="background-color: var(--st-neutral-50);">50 (#F5F5F5)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Paleta Ocean (Teal) -->
+            <div class="col-md-2">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom-0 fw-bold">Ocean</div>
+                    <div class="card-body p-0 d-flex flex-column">
+                        <div class="p-3 text-white text-center" style="background-color: var(--st-ocean-400);">400 MAIN (#0097A9)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Paleta Berry (Magenta) -->
+            <div class="col-md-2">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom-0 fw-bold">Berry</div>
+                    <div class="card-body p-0 d-flex flex-column">
+                        <div class="p-3 text-white text-center" style="background-color: var(--st-berry-700);">700 MAIN (#86207C)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Paleta Sunrise (Gold) -->
+            <div class="col-md-2">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom-0 fw-bold">Sunrise</div>
+                    <div class="card-body p-0 d-flex flex-column">
+                        <div class="p-3 text-white text-center" style="background-color: var(--st-sunrise-300);">300 MAIN (#ED8A00)</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

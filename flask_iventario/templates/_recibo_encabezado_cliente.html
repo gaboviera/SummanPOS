@@ -1,0 +1,35 @@
+{# ============================================================
+   Bloque con los datos del cliente. Va dentro del <thead> que el
+   paginador clona, así que se repite en TODAS las páginas.
+   Lo comparten los dos formatos: recibo.html (hoja membretada) y
+   recibo_encabezado.html (hoja normal).
+   ============================================================ #}
+<tr>
+    <td colspan="5" style="border: none; padding: 0; padding-bottom: 20px;">
+        <table class="header-info-table" style="width: 100%;">
+            <tr>
+                <td style="width: 130px;"><strong>Nombre y Apellido<br>ó Razón Social</strong></td>
+                <td colspan="3" style="text-transform: uppercase;">{{ guia.cliente_nombre or 'N/A' }}</td>
+                <td style="width: 60px;"><strong>Fecha:</strong></td>
+                <td style="text-align: right;">{{ guia.fecha.strftime('%d/%m/%Y') if guia.fecha else '' }}</td>
+            </tr>
+            <tr>
+                <td><strong>Domicilio Fiscal<br>(Domicilio)</strong></td>
+                <td colspan="3" style="text-transform: uppercase;">{{ guia.cliente_direccion or 'N/A' }}</td>
+                <td><strong>RIF.</strong></td>
+                <td style="text-align: right;">{{ guia.cliente_identificacion or 'N/A' }}</td>
+            </tr>
+            <tr>
+                <td><strong>Ciudad:</strong> <span style="text-transform: uppercase;">{{ guia.ciudad or 'N/A' }}</span></td>
+                <td colspan="3"><strong>Teléfono:</strong> <span style="margin-left: 20px;">{{ guia.cliente_telefono or 'N/A' }}</span></td>
+                <td colspan="2" rowspan="2" style="vertical-align: bottom;">
+                    <div class="despachamos-header">Despachamos a Ud. (s) lo siguiente:</div>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>Vendedor(a):</strong> <span style="text-transform: capitalize;">{{ vendedor_display or guia.vendedor_nombre or 'N/A' }}</span></td>
+                <td colspan="3"><strong>Tlf:</strong> <span style="margin-left: 45px;">{{ vendedor_telefono or '' }}</span></td>
+            </tr>
+        </table>
+    </td>
+</tr>
